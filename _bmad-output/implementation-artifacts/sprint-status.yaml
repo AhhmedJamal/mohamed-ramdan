@@ -1,0 +1,94 @@
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created, ready for development
+#   - in-progress: Developer actively working on implementation
+#   - review: Implementation complete, ready for review
+#   - done: Story completed
+
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+
+# Action Item Status:
+#   - open: Committed during a retrospective, not yet addressed
+#   - in-progress: Actively being worked on
+#   - done: Completed
+
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when its first story starts (via build's sprint sync)
+# - Stories can be worked in parallel if team capacity allows
+# - Developer typically creates the next story after the previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+# - Retrospective appends its action items to action_items; the status view surfaces open ones
+generated: 11-22-2026 06:05
+last_updated: 11-22-2026 06:05
+project: mohamed_ramdan
+project_key: NOKEY
+tracking_system: file-system
+story_location: _bmad-output/implementation-artifacts
+development_status:
+  epic-1: done
+  1-1-multi-tenant-database-connection-dynamic-resolver: done
+  1-2-user-authentication-brute-force-rate-limiting-role-redirecti: done
+  1-3-password-recovery-reset-via-24-hour-single-use-token: done
+  1-4-user-profile-management-session-termination-on-password-chan: done
+  1-5-super-admin-company-creation-isolated-db-provisioning: done
+  1-6-company-list-freeze-activate-immediate-session-eviction: done
+  1-7-super-admin-consolidated-dashboard: done
+  1-8-branch-manager-employee-crud-management: done
+  epic-1-retrospective: optional
+
+  epic-2: done
+  2-1-chart-of-accounts-coa-tree-recursive-nature-inheritance: done
+  2-2-cost-center-management-mandatory-linking-enforcement: done
+  2-3-fiscal-year-management-accounting-period-locking: done
+  2-4-fiscal-year-end-closing-retained-earnings-rollover: done
+  epic-2-retrospective: optional
+
+  epic-3: done
+  3-1-property-management-auto-provisioning-of-units-and-cost-cent: done
+  3-2-property-unit-lifecycle-maintenance-management: done
+  3-3-tenant-master-registry-individuals-corporates: done
+  epic-3-retrospective: optional
+
+  epic-4: done
+  4-1-rental-contract-creation-automated-installment-schedule-gene: done
+  4-2-rental-contract-modifications-document-uploads-print-pdf: done
+  4-3-two-step-contract-cancellation-workflow-unit-release: done
+  epic-4-retrospective: optional
+
+  epic-5: done
+  5-1-create-draft-receipt-voucher-سند-قبض: done
+  5-2-create-draft-disbursement-voucher-سند-صرف: done
+  5-3-accountant-voucher-queue-audit-approve-auto-post-balanced-jo: done
+  5-4-accountant-voucher-rejection-with-mandatory-reason-maker-res: done
+  5-5-manual-balanced-journal-entry-creation-posting: done
+  epic-5-retrospective: optional
+
+  epic-6: done
+  6-1-contractor-progress-billing-مستخلصات-المقاولين-draft-line-it: done
+  6-2-contractor-progress-billing-audit-approval: done
+  6-3-supplier-purchase-invoice-draft-entry: done
+  epic-6-retrospective: optional
+
+  epic-7: done
+  7-1-trial-balance-ميزان-المراجعة-calculation-balance-verificatio: done
+  7-2-general-ledger-دفتر-الأستاذ-العام-with-counter-account-track: done
+  7-3-balance-sheet-الميزانية-العمومية-accounting-equation-verific: done
+  7-4-income-statement-per-building-income-statement: done
+  epic-7-retrospective: optional
+
+  epic-8: done
+  8-1-daily-rent-due-reminders-cron-job-7-day-advance-due-date: done
+  8-2-daily-overdue-status-transition-cron-job: done
+  8-3-real-time-in-app-maker-checker-alerts: done
+  8-4-sms-gateway-smtp-external-integration-adapters: done
+  epic-8-retrospective: optional
