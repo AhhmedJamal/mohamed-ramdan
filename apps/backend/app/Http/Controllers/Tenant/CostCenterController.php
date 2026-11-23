@@ -63,6 +63,7 @@ class CostCenterController extends Controller
 
         return response()->json([
             'success' => true,
+            'data' => $enriched,
             'cost_centers' => $enriched,
         ], 200);
     }
@@ -95,6 +96,14 @@ class CostCenterController extends Controller
     {
         if (!$this->authorizeAccountant($request)) {
             return response()->json(['message' => 'غير مصرح لك بإضافة مراكز تكلفة'], 403);
+        }
+
+        // Support aliases
+        if ($request->filled('name_ar') && !$request->filled('name')) {
+            $request->merge(['name' => $request->name_ar]);
+        }
+        if (!$request->filled('type')) {
+            $request->merge(['type' => 'property']);
         }
 
         $validator = Validator::make($request->all(), [

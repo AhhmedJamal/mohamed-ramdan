@@ -6,7 +6,8 @@ import ProtectedRoute from '../../../components/ProtectedRoute';
 import api from '../../../services/api';
 import {
   Shield, Plus, Search, RefreshCw, FolderTree, CheckCircle,
-  XCircle, Link2, Trash2, Edit2, AlertTriangle, ChevronDown, ChevronLeft
+  XCircle, Link2, Trash2, Edit2, AlertTriangle, ChevronDown, ChevronLeft,
+  X, Building2, Hammer
 } from 'lucide-react';
 
 export default function CostCentersPage() {
@@ -14,22 +15,30 @@ export default function CostCentersPage() {
   const [accounts, setAccounts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+
+  // Modals
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [showLinkModal, setShowLinkModal] = useState(false);
-  const [selectedCenter, setSelectedCenter] = useState(null);
+  const [editingCenter, setEditingCenter] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [formError, setFormError] = useState(null);
 
+  // Form States (UC-20)
   const [formData, setFormData] = useState({
-    code: '',
-    name_ar: '',
-    name_en: '',
-    parent_id: '',
+    name: '',
+    type: 'property', // property or contracting_project
+    description: '',
+    status: 'active', // active or inactive
   });
 
+  // Link Account State (UC-23)
   const [linkData, setLinkData] = useState({
     account_id: '',
-    cost_center_id: '',
+    is_mandatory: true,
+    allowed_cost_center_ids: [],
   });
 
   const fetchData = async () => {
@@ -39,8 +48,8 @@ export default function CostCentersPage() {
         api.get('/cost-centers'),
         api.get('/accounts').catch(() => ({ data: { data: [] } })),
       ]);
-      setCostCenters(ccRes.data.data || []);
-      setAccounts(accRes.data.data || []);
+      setCostCenters(ccRes.data.data || ccRes.data.cost_centers || []);
+      setAccounts(accRes.data.data || accRes.data.flat || []);
     } catch (err) {
       console.error('Failed to load cost centers', err);
     } finally {
@@ -52,29 +61,48 @@ export default function CostCentersPage() {
     fetchData();
   }, []);
 
+  // UC-20: Create Cost Center
   const handleCreate = async (e) => {
     e.preventDefault();
     setActionLoading(true);
     setFormError(null);
 
     try {
-      await api.post('/cost-centers', {
-        code: formData.code,
-        name_ar: formData.name_ar,
-        name_en: formData.name_en,
-        parent_id: formData.parent_id || null,
-      });
-
+      await api.post('/cost-centers', formData);
+      alert('تم إنشاء مركز التكلفة بنجاح (UC-20)');
       setShowAddModal(false);
-      setFormData({ code: '', name_ar: '', name_en: '', parent_id: '' });
+      setFormData({ name: '', type: 'property', description: '', status: 'active' });
       fetchData();
     } catch (err) {
-      setFormError(err.response?.data?.message || 'حدث خطأ أثناء إضافة مركز التكلفة');
+      setFormError(err.response?.data?.message || err.response?.data?.errors?.name?.[0] || 'فشل في إضافة مركز التكلفة');
     } finally {
       setActionLoading(false);
     }
   };
 
+  // UC-21: Update Cost Center
+  const handleUpdate = async (e) => {
+    e.preventDefault();
+    setActionLoading(true);
+    setFormError(null);
+
+    try {
+      await api.put(`/cost-centers/${editingCenter.id}`, {
+        name: editingCenter.name,
+        description: editingCenter.description,
+        status: editingCenter.status,
+      });
+      alert('تم تحديث بيانات مركز التكلفة بنجاح (UC-21)');
+      setShowEditModal(false);
+      fetchData();
+    } catch (err) {
+      setFormError(err.response?.data?.message || 'فشل في تحديث مركز التكلفة');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Toggle Status
   const handleToggleStatus = async (center) => {
     try {
       await api.post(`/cost-centers/${center.id}/toggle-status`);
@@ -84,13 +112,32 @@ export default function CostCentersPage() {
     }
   };
 
+  // UC-22: Delete Cost Center
+  const handleDelete = async (center) => {
+    if (!window.confirm(`هل أنت متأكد من حذف مركز التكلفة "${center.name}"؟`)) return;
+
+    try {
+      await api.delete(`/cost-centers/${center.id}`);
+      alert('تم حذف مركز التكلفة بنجاح (UC-22)');
+      fetchData();
+    } catch (err) {
+      alert(err.response?.data?.message || 'لا يمكن حذف مركز التكلفة لوجود قيود مالية أو عقود مرتبطة به (UC-22 Alternative 1)');
+    }
+  };
+
+  // UC-23: Link Account to Cost Center
   const handleLinkAccount = async (e) => {
     e.preventDefault();
     setActionLoading(true);
     try {
-      await api.post('/cost-centers/link-account', linkData);
+      await api.post('/cost-centers/link-account', {
+        account_id: linkData.account_id,
+        is_cost_center_mandatory: linkData.is_mandatory,
+        allowed_cost_center_ids: linkData.allowed_cost_center_ids,
+      });
+      alert('تم حفظ إعدادات ربط الحساب بمراكز التكلفة بنجاح (UC-23)');
       setShowLinkModal(false);
-      setLinkData({ account_id: '', cost_center_id: '' });
+      setLinkData({ account_id: '', is_mandatory: true, allowed_cost_center_ids: [] });
       fetchData();
     } catch (err) {
       alert(err.response?.data?.message || 'حدث خطأ أثناء ربط الحساب بمركز التكلفة');
@@ -99,53 +146,68 @@ export default function CostCentersPage() {
     }
   };
 
-  const handleDelete = async (center) => {
-    if (!window.confirm(`هل أنت متأكد من حذف مركز التكلفة "${center.name_ar}"؟`)) return;
-
-    try {
-      await api.delete(`/cost-centers/${center.id}`);
-      fetchData();
-    } catch (err) {
-      alert(err.response?.data?.message || 'لا يمكن حذف مركز التكلفة لوجود حركات مالية مرتبطة به');
-    }
-  };
-
+  // Filtered list
   const filteredCenters = costCenters.filter((cc) => {
     const q = searchQuery.toLowerCase();
-    return (
-      cc.name_ar?.toLowerCase().includes(q) ||
-      cc.name_en?.toLowerCase().includes(q) ||
-      cc.code?.includes(q)
-    );
+    const matchSearch =
+      cc.name?.toLowerCase().includes(q) ||
+      cc.code?.toLowerCase().includes(q) ||
+      cc.description?.toLowerCase().includes(q);
+
+    const matchType = typeFilter === 'all' || cc.type === typeFilter;
+    const matchStatus = statusFilter === 'all' || cc.status === statusFilter;
+
+    return matchSearch && matchType && matchStatus;
   });
 
   return (
     <ProtectedRoute allowedRoles={['general_accountant', 'branch_manager']}>
       <AppLayout
-        title="دليل مراكز التكلفة (Cost Centers Tree)"
-        subtitle="الهيكل الهرمي لمراكز التكلفة، ربطها بالحسابات وشجرة الحسابات COA، وتتبع المصروفات والإيرادات (UC-19B إلى UC-23)"
+        title="إدارة مراكز التكلفة (Cost Centers) - UC-19B إلى UC-23"
+        subtitle="الهيكل التحليلي لمراكز التكلفة (عقارات ومشاريع مقاولات)، ربطها بالحسابات وشجرة COA"
       >
         {/* Actions Bar */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
-          <div className="relative w-full sm:w-80">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="البحث بالرمز أو اسم مركز التكلفة..."
-              className="w-full pl-3 pr-10 py-2.5 bg-white border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-amber-500 shadow-sm"
-            />
-            <Search className="w-4 h-4 text-slate-400 absolute right-3 top-3" />
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-6">
+          <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+            <div className="relative min-w-[240px]">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="البحث بالرمز أو الاسم أو الوصف..."
+                className="w-full pl-3 pr-10 py-2.5 bg-white border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-slate-900 shadow-sm"
+              />
+              <Search className="w-4 h-4 text-slate-400 absolute right-3 top-3" />
+            </div>
+
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="py-2 px-3 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800"
+            >
+              <option value="all">جميع الأنواع</option>
+              <option value="property">عقارات / عمائر</option>
+              <option value="contracting_project">مشاريع مقاولات</option>
+            </select>
+
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="py-2 px-3 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800"
+            >
+              <option value="all">جميع الحالات</option>
+              <option value="active">نشط</option>
+              <option value="inactive">معطّل</option>
+            </select>
           </div>
 
-          <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+          <div className="flex items-center gap-2.5 w-full md:w-auto justify-end">
             <button
-              onClick={fetchData}
-              disabled={isLoading}
-              className="p-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 shadow-sm transition-colors"
-              title="تحديث البيانات"
+              onClick={() => setShowLinkModal(true)}
+              className="flex items-center gap-1.5 px-3.5 py-2.5 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 shadow-sm transition-colors"
             >
-              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+              <Link2 className="w-4 h-4 text-slate-500" />
+              <span>ربط حساب بمركز تكلفة (UC-23)</span>
             </button>
             <button
               onClick={() => {
@@ -155,103 +217,103 @@ export default function CostCentersPage() {
               className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl shadow transition-colors"
             >
               <Plus className="w-4 h-4" />
-              <span>إضافة مركز تكلفة جديد</span>
+              <span>إضافة مركز تكلفة (UC-20)</span>
             </button>
           </div>
         </div>
 
         {/* Cost Centers Table */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-8">
           <div className="overflow-x-auto">
             <table className="w-full text-right text-xs">
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold">
+              <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
                 <tr>
-                  <th className="py-3.5 px-4">رمز المركز</th>
-                  <th className="py-3.5 px-4">اسم مركز التكلفة (عربي)</th>
-                  <th className="py-3.5 px-4">الاسم بالإنجليزية</th>
-                  <th className="py-3.5 px-4">المركز الرئيسي الأب</th>
-                  <th className="py-3.5 px-4">المستوى الهرمي</th>
-                  <th className="py-3.5 px-4">الحالة</th>
-                  <th className="py-3.5 px-4 text-center">الإجراءات</th>
+                  <th className="py-3.5 px-6">كود المركز</th>
+                  <th className="py-3.5 px-6">اسم مركز التكلفة</th>
+                  <th className="py-3.5 px-6">النوع (UC-20)</th>
+                  <th className="py-3.5 px-6">الوصف</th>
+                  <th className="py-3.5 px-6">الحالة</th>
+                  <th className="py-3.5 px-6 text-center">الإجراءات</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">
                 {isLoading ? (
                   <tr>
-                    <td colSpan="7" className="py-12 text-center text-slate-400">
-                      <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-amber-500" />
-                      جاري تحميل دليل مراكز التكلفة...
+                    <td colSpan="6" className="py-12 text-center text-slate-400">
+                      جاري تحميل مراكز التكلفة...
                     </td>
                   </tr>
                 ) : filteredCenters.length === 0 ? (
                   <tr>
-                    <td colSpan="7" className="py-12 text-center text-slate-400">
-                      لا توجد مراكز تكلفة مسجلة
+                    <td colSpan="6" className="py-12 text-center text-slate-400">
+                      لا توجد مراكز تكلفة مسجلة مطابقة للبحث
                     </td>
                   </tr>
                 ) : (
                   filteredCenters.map((cc) => (
-                    <tr key={cc.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3.5 px-4 font-mono font-bold text-slate-900">
-                        <span className="px-2 py-0.5 rounded bg-slate-100 border border-slate-200">
-                          {cc.code}
+                    <tr key={cc.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="py-4 px-6 font-mono font-bold text-slate-900">{cc.code}</td>
+                      <td className="py-4 px-6 font-semibold text-slate-900">{cc.name}</td>
+                      <td className="py-4 px-6">
+                        <span
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold ${
+                            cc.type === 'property'
+                              ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                              : 'bg-amber-50 text-amber-700 border border-amber-200'
+                          }`}
+                        >
+                          {cc.type === 'property' ? (
+                            <>
+                              <Building2 className="w-3 h-3" />
+                              <span>عقار</span>
+                            </>
+                          ) : (
+                            <>
+                              <Hammer className="w-3 h-3" />
+                              <span>مشروع مقاولات</span>
+                            </>
+                          )}
                         </span>
                       </td>
-                      <td className="py-3.5 px-4 font-bold text-slate-900 flex items-center gap-2">
-                        <FolderTree className="w-4 h-4 text-amber-600 shrink-0" />
-                        <span>{cc.name_ar}</span>
+                      <td className="py-4 px-6 text-slate-500 max-w-xs truncate">{cc.description || '—'}</td>
+                      <td className="py-4 px-6">
+                        <span
+                          className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
+                            cc.status === 'active'
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : 'bg-slate-100 text-slate-600 border border-slate-200'
+                          }`}
+                        >
+                          {cc.status === 'active' ? 'نشط' : 'معطّل'}
+                        </span>
                       </td>
-                      <td className="py-3.5 px-4 text-slate-500">{cc.name_en || '—'}</td>
-                      <td className="py-3.5 px-4 text-slate-600">
-                        {cc.parent ? (
-                          <span className="font-semibold text-slate-700">{cc.parent.name_ar}</span>
-                        ) : (
-                          <span className="text-slate-400">مركز رئيسي (Root)</span>
-                        )}
-                      </td>
-                      <td className="py-3.5 px-4 font-mono text-slate-600">
-                        مستوى {cc.level || (cc.parent_id ? 2 : 1)}
-                      </td>
-                      <td className="py-3.5 px-4">
-                        {cc.is_active ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            <CheckCircle className="w-3 h-3" />
-                            نشط
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-red-50 text-red-700 border border-red-200">
-                            <XCircle className="w-3 h-3" />
-                            معطل
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-3.5 px-4 text-center">
+                      <td className="py-4 px-6 text-center">
                         <div className="flex items-center justify-center gap-1.5">
                           <button
                             onClick={() => {
-                              setSelectedCenter(cc);
-                              setLinkData({ cost_center_id: cc.id, account_id: '' });
-                              setShowLinkModal(true);
+                              setEditingCenter({ ...cc });
+                              setShowEditModal(true);
                             }}
-                            className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 transition-colors"
-                            title="ربط بحساب من شجرة الحسابات"
+                            className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs"
+                            title="تعديل مركز التكلفة (UC-21)"
                           >
-                            <Link2 className="w-3.5 h-3.5" />
+                            <Edit2 className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => handleToggleStatus(cc)}
-                            className={`px-2 py-1 rounded-lg border text-[11px] font-semibold transition-colors ${
-                              cc.is_active
-                                ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200'
-                                : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200'
-                            }`}
+                            className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs"
+                            title="تفعيل / تعطيل"
                           >
-                            {cc.is_active ? 'تعطيل' : 'تفعيل'}
+                            {cc.status === 'active' ? (
+                              <XCircle className="w-3.5 h-3.5 text-slate-500" />
+                            ) : (
+                              <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                            )}
                           </button>
                           <button
                             onClick={() => handleDelete(cc)}
-                            className="p-1.5 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 text-red-600 transition-colors"
-                            title="حذف مركز التكلفة"
+                            className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-xs"
+                            title="حذف مركز التكلفة (UC-22)"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -265,91 +327,99 @@ export default function CostCentersPage() {
           </div>
         </div>
 
-        {/* Add Modal */}
+        {/* MODAL 1: Add Cost Center (UC-20) */}
         {showAddModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-2xl w-full max-w-md overflow-hidden">
-              <div className="p-5 bg-slate-900 text-white flex items-center justify-between">
-                <h3 className="font-bold text-sm flex items-center gap-2">
-                  <Shield className="w-4 h-4 text-amber-500" />
-                  <span>إضافة مركز تكلفة جديد (UC-20)</span>
-                </h3>
-                <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-white">✕</button>
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+                <h3 className="font-bold text-base text-slate-900">إضافة مركز تكلفة جديد (UC-20)</h3>
+                <button onClick={() => setShowAddModal(false)} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+                  <X className="w-5 h-5" />
+                </button>
               </div>
 
-              <form onSubmit={handleCreate} className="p-6 space-y-4 text-xs">
-                {formError && (
-                  <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 flex items-start gap-2">
-                    <AlertTriangle className="w-4 h-4 shrink-0 text-red-500 mt-0.5" />
-                    <span>{formError}</span>
-                  </div>
-                )}
+              {formError && (
+                <div className="mb-4 p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800">
+                  {formError}
+                </div>
+              )}
 
+              <form onSubmit={handleCreate} className="space-y-4">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">رمز مركز التكلفة *</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    اسم مركز التكلفة (فريد - 3 إلى 100 حرف) *
+                  </label>
                   <input
                     type="text"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder="مثال: عمارة اليرموك السكنية أو مشروع فيلا الياسمين"
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-slate-900 focus:outline-none"
                     required
-                    value={formData.code}
-                    onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                    placeholder="مثال: CC-101"
-                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:ring-2 focus:ring-amber-500 focus:bg-white"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">اسم مركز التكلفة (بالعربية) *</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.name_ar}
-                    onChange={(e) => setFormData({ ...formData, name_ar: e.target.value })}
-                    placeholder="مثال: مشروع برج الياسمين - صيانة وتشغيل"
-                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-amber-500 focus:bg-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">الاسم بالإنجليزية (اختياري)</label>
-                  <input
-                    type="text"
-                    value={formData.name_en}
-                    onChange={(e) => setFormData({ ...formData, name_en: e.target.value })}
-                    placeholder="e.g. Yasmin Tower Maintenance"
-                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-amber-500 focus:bg-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">المركز الأب (إن وجد)</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    النوع (عقار / مشروع مقاولات - UC-20) *
+                  </label>
                   <select
-                    value={formData.parent_id}
-                    onChange={(e) => setFormData({ ...formData, parent_id: e.target.value })}
-                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-amber-500 focus:bg-white"
+                    value={formData.type}
+                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:ring-2 focus:ring-slate-900 focus:outline-none"
                   >
-                    <option value="">بدون مركز أب (مركز رئيسي جذر)</option>
-                    {costCenters.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.code} - {c.name_ar}
-                      </option>
-                    ))}
+                    <option value="property">عقار (عمارة / مبنى)</option>
+                    <option value="contracting_project">مشروع مقاولات</option>
                   </select>
                 </div>
 
-                <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">الوصف (اختياري)</label>
+                  <textarea
+                    rows={2}
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    placeholder="وصف تفصيلي أو عنوان الموقع..."
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">الحالة الأولية *</label>
+                  <div className="flex items-center gap-4 text-xs font-semibold">
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="radio"
+                        checked={formData.status === 'active'}
+                        onChange={() => setFormData({ ...formData, status: 'active' })}
+                      />
+                      <span>نشط</span>
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="radio"
+                        checked={formData.status === 'inactive'}
+                        onChange={() => setFormData({ ...formData, status: 'inactive' })}
+                      />
+                      <span>معطّل</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
                   <button
                     type="button"
                     onClick={() => setShowAddModal(false)}
-                    className="px-4 py-2 border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50"
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl"
                   >
                     إلغاء
                   </button>
                   <button
                     type="submit"
                     disabled={actionLoading}
-                    className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl shadow disabled:opacity-50"
+                    className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl shadow-sm disabled:opacity-50"
                   >
-                    {actionLoading ? 'جاري الحفظ...' : 'حفظ مركز التكلفة'}
+                    حفظ مركز التكلفة (UC-20)
                   </button>
                 </div>
               </form>
@@ -357,50 +427,125 @@ export default function CostCentersPage() {
           </div>
         )}
 
-        {/* Link Account Modal */}
-        {showLinkModal && selectedCenter && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-2xl w-full max-w-md overflow-hidden">
-              <div className="p-5 bg-slate-900 text-white flex items-center justify-between">
-                <h3 className="font-bold text-sm flex items-center gap-2">
-                  <Link2 className="w-4 h-4 text-amber-500" />
-                  <span>ربط مركز التكلفة ({selectedCenter.name_ar}) بحساب</span>
-                </h3>
-                <button onClick={() => setShowLinkModal(false)} className="text-slate-400 hover:text-white">✕</button>
+        {/* MODAL 2: Edit Cost Center (UC-21) */}
+        {showEditModal && editingCenter && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+                <h3 className="font-bold text-base text-slate-900">تعديل مركز التكلفة (UC-21): {editingCenter.code}</h3>
+                <button onClick={() => setShowEditModal(false)} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+                  <X className="w-5 h-5" />
+                </button>
               </div>
 
-              <form onSubmit={handleLinkAccount} className="p-6 space-y-4 text-xs">
+              <form onSubmit={handleUpdate} className="space-y-4">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">اختر الحساب من شجرة الحسابات (COA) *</label>
-                  <select
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">اسم مركز التكلفة *</label>
+                  <input
+                    type="text"
+                    value={editingCenter.name}
+                    onChange={(e) => setEditingCenter({ ...editingCenter, name: e.target.value })}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900"
                     required
-                    value={linkData.account_id}
-                    onChange={(e) => setLinkData({ ...linkData, account_id: e.target.value })}
-                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-amber-500 focus:bg-white"
-                  >
-                    <option value="">-- اختر الحساب المطلوب ربطه --</option>
-                    {accounts.map((acc) => (
-                      <option key={acc.id} value={acc.id}>
-                        {acc.code} - {acc.name_ar} ({acc.root_type})
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
 
-                <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">النوع (ثابت)</label>
+                  <input
+                    type="text"
+                    disabled
+                    value={editingCenter.type === 'property' ? 'عقار (ثابت لا يمكن تغييره لوجود قيود)' : 'مشروع مقاولات (ثابت)'}
+                    className="w-full p-2.5 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-500 cursor-not-allowed font-semibold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">الوصف</label>
+                  <textarea
+                    rows={2}
+                    value={editingCenter.description || ''}
+                    onChange={(e) => setEditingCenter({ ...editingCenter, description: e.target.value })}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
                   <button
                     type="button"
-                    onClick={() => setShowLinkModal(false)}
-                    className="px-4 py-2 border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50"
+                    onClick={() => setShowEditModal(false)}
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl"
                   >
                     إلغاء
                   </button>
                   <button
                     type="submit"
-                    disabled={actionLoading}
-                    className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl shadow disabled:opacity-50"
+                    className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl shadow-sm"
                   >
-                    {actionLoading ? 'جاري الربط...' : 'تأكيد الربط'}
+                    حفظ التعديلات (UC-21)
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL 3: Link Account to Cost Center (UC-23) */}
+        {showLinkModal && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+                <h3 className="font-bold text-base text-slate-900">ربط حساب بمركز تكلفة (UC-23)</h3>
+                <button onClick={() => setShowLinkModal(false)} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleLinkAccount} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">الحساب من شجرة COA *</label>
+                  <select
+                    value={linkData.account_id}
+                    onChange={(e) => setLinkData({ ...linkData, account_id: e.target.value })}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900"
+                    required
+                  >
+                    <option value="">اختر الحساب...</option>
+                    {accounts.map((acc) => (
+                      <option key={acc.id} value={acc.id}>
+                        {acc.code} - {acc.name} ({acc.nature === 'debit' ? 'مدين' : 'دائن'})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                  <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-900">
+                    <input
+                      type="checkbox"
+                      checked={linkData.is_mandatory}
+                      onChange={(e) => setLinkData({ ...linkData, is_mandatory: e.target.checked })}
+                    />
+                    <span>إلزامي الربط بمركز تكلفة عند إنشاء القيود (UC-23)</span>
+                  </label>
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    إذا كان مفعّلاً، لن يقبل النظام حفظ أي قيد يومية على هذا الحساب دون تحديد مركز تكلفة.
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setShowLinkModal(false)}
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl"
+                  >
+                    إلغاء
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl shadow-sm"
+                  >
+                    حفظ إعدادات الربط (UC-23)
                   </button>
                 </div>
               </form>
@@ -411,4 +556,3 @@ export default function CostCentersPage() {
     </ProtectedRoute>
   );
 }
-

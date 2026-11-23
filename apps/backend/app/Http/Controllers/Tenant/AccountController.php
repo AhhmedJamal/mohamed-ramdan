@@ -39,7 +39,9 @@ class AccountController extends Controller
 
         if ($accounts->isEmpty()) {
             return response()->json([
+                'success' => true,
                 'message' => 'لم يتم إنشاء حسابات بعد',
+                'data' => [],
                 'tree' => [],
                 'flat' => [],
             ], 200);
@@ -58,6 +60,8 @@ class AccountController extends Controller
         $tree = $this->buildTree($enriched);
 
         return response()->json([
+            'success' => true,
+            'data' => $enriched,
             'tree' => $tree,
             'flat' => $enriched,
         ], 200);
@@ -112,6 +116,17 @@ class AccountController extends Controller
     {
         if (!$this->authorizeAccountant($request)) {
             return response()->json(['message' => 'غير مصرح لك بإضافة حسابات'], 403);
+        }
+
+        // Support payload aliases
+        if ($request->filled('name_ar') && !$request->filled('name')) {
+            $request->merge(['name' => $request->name_ar]);
+        }
+        if (!$request->filled('root_type') && $request->filled('parent_id')) {
+            $parent = Account::find($request->parent_id);
+            if ($parent) {
+                $request->merge(['root_type' => $parent->root_type]);
+            }
         }
 
         // Fixed roots cannot be added dynamically
