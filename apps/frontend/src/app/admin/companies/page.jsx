@@ -26,6 +26,9 @@ export default function CompaniesManagementPage() {
     city: 'الرياض',
     tax_number: '',
     subdomain: '',
+    manager_name: '',
+    manager_email: '',
+    manager_mobile: '',
   });
 
   const fetchCompanies = async () => {
@@ -60,6 +63,9 @@ export default function CompaniesManagementPage() {
         city: 'الرياض',
         tax_number: '',
         subdomain: '',
+        manager_name: '',
+        manager_email: '',
+        manager_mobile: '',
       });
       fetchCompanies();
     } catch (err) {
@@ -331,6 +337,45 @@ export default function CompaniesManagementPage() {
                       onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                       placeholder="طريق الملك عبدالعزيز، حي الياسمين"
                       className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-amber-500 focus:bg-white"
+                    />
+                  </div>
+
+                  {/* Manager Information (UC-07) */}
+                  <div className="col-span-2 pt-2 border-t border-slate-100">
+                    <p className="text-[11px] font-bold text-slate-700 mb-2">بيانات مدير الفرع الأولية (اختياري - يتم التعيين التلقائي في حال تركها فارغة):</p>
+                  </div>
+
+                  <div className="col-span-2">
+                    <label className="block font-semibold text-slate-700 mb-1">اسم مدير الشركة</label>
+                    <input
+                      type="text"
+                      value={formData.manager_name}
+                      onChange={(e) => setFormData({ ...formData, manager_name: e.target.value })}
+                      placeholder="مثال: م. فهد العتيبي"
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-amber-500 focus:bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">بريد المدير</label>
+                    <input
+                      type="email"
+                      value={formData.manager_email}
+                      onChange={(e) => setFormData({ ...formData, manager_email: e.target.value })}
+                      placeholder="manager@domain.com"
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:ring-2 focus:ring-amber-500 focus:bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">جوال المدير (05xxxxxxxx)</label>
+                    <input
+                      type="text"
+                      maxLength={10}
+                      value={formData.manager_mobile}
+                      onChange={(e) => setFormData({ ...formData, manager_mobile: e.target.value })}
+                      placeholder="05XXXXXXXX"
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:ring-2 focus:ring-amber-500 focus:bg-white"
                     />
                   </div>
                 </div>

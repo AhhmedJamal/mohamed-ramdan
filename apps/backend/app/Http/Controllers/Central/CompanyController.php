@@ -91,9 +91,9 @@ class CompanyController extends Controller
             'city' => ['required', 'string'],
             'tax_number' => ['nullable', 'string'],
             'subdomain' => ['required', 'string', 'regex:/^[a-z0-9_-]+$/', 'unique:companies,subdomain'],
-            'manager_name' => ['required', 'string', 'min:3', 'max:100'],
-            'manager_email' => ['required', 'email', 'unique:users,email'],
-            'manager_mobile' => ['required', 'string', 'regex:/^05[0-9]{8}$/', 'unique:users,mobile'],
+            'manager_name' => ['nullable', 'string', 'min:3', 'max:100'],
+            'manager_email' => ['nullable', 'email', 'unique:users,email'],
+            'manager_mobile' => ['nullable', 'string', 'regex:/^05[0-9]{8}$/', 'unique:users,mobile'],
             'temporary_password' => ['nullable', 'string', 'min:8', 'max:25'],
         ], [
             'name.required' => 'يرجى إدخال اسم الشركة',
@@ -107,11 +107,8 @@ class CompanyController extends Controller
             'subdomain.required' => 'يرجى تحديد النطاق الفرعي',
             'subdomain.unique' => 'اسم الشركة مستخدم بالفعل',
             'subdomain.regex' => 'النطاق الفرعي يجب أن يحتوي على أحرف إنجليزية وأرقام فقط',
-            'manager_name.required' => 'يرجى إدخال اسم مدير الشركة',
-            'manager_email.required' => 'يرجى إدخال بريد مدير الشركة',
             'manager_email.email' => 'صيغة البريد الإلكتروني غير صحيحة',
             'manager_email.unique' => 'البيانات مستخدمة بالفعل',
-            'manager_mobile.required' => 'يرجى إدخال جوال مدير الشركة',
             'manager_mobile.regex' => 'البيانات مستخدمة بالفعل',
             'manager_mobile.unique' => 'البيانات مستخدمة بالفعل',
         ]);
@@ -144,19 +141,28 @@ class CompanyController extends Controller
                 'status' => 'active',
             ]);
 
-            // 3. Create Branch Manager User
-            $manager = User::create([
-                'name' => $request->input('manager_name'),
-                'email' => $request->input('manager_email'),
-                'mobile' => $request->input('manager_mobile'),
-                'password' => Hash::make($tempPassword),
-                'status' => 'active',
-            ]);
+            // 3. Create or Link Branch Manager User (UC-07)
+            $mgrName = $request->input('manager_name') ?: ('مدير ' . $company->name);
+            $mgrEmail = $request->input('manager_email') ?: ("manager_{$subdomain}@ramadan-group.com");
+            $mgrMobile = $request->input('manager_mobile') ?: ('05' . rand(10000000, 99999999));
+
+            $manager = User::where('email', $mgrEmail)->first();
+            if (!$manager) {
+                $manager = User::create([
+                    'name' => $mgrName,
+                    'email' => $mgrEmail,
+                    'mobile' => $mgrMobile,
+                    'password' => Hash::make($tempPassword),
+                    'status' => 'active',
+                ]);
+            }
 
             // Link Manager in company_user
-            $company->users()->attach($manager->id, [
-                'role' => 'branch_manager',
-                'is_primary_manager' => true,
+            $company->users()->syncWithoutDetaching([
+                $manager->id => [
+                    'role' => 'branch_manager',
+                    'is_primary_manager' => true,
+                ],
             ]);
 
             // 4. Provision Tenant Isolated Database & Seed 12 Root Accounts

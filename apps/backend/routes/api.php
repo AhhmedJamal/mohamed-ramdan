@@ -65,13 +65,23 @@ Route::middleware('auth:sanctum')->prefix('company')->group(function () {
 });
 
 // Super Admin Company & System Management Routes (UC-07 to UC-11 - Section 1.6)
-Route::middleware(['auth:sanctum', 'super_admin'])->prefix('admin')->group(function () {
-    Route::get('/dashboard/metrics', [AdminDashboardController::class, 'metrics']);
-    Route::get('/metrics', [AdminDashboardController::class, 'metrics']); // Alias for frontend
+Route::middleware(['auth:sanctum', 'super_admin'])->group(function () {
+    Route::prefix('admin')->group(function () {
+        Route::get('/dashboard/metrics', [AdminDashboardController::class, 'metrics']);
+        Route::get('/metrics', [AdminDashboardController::class, 'metrics']); // Alias for frontend
+        Route::get('/companies', [CompanyController::class, 'index']);
+        Route::post('/companies', [CompanyController::class, 'store']);
+        Route::post('/companies/{id}/toggle-status', [CompanyController::class, 'toggleStatus']);
+        Route::post('/companies/{id}/freeze', [CompanyController::class, 'toggleStatus']); // Convenient action alias
+        Route::post('/companies/{id}/unfreeze', [CompanyController::class, 'toggleStatus']);
+        Route::post('/companies/{id}/assign-manager', [CompanyController::class, 'assignManager']);
+    });
+
+    // Root aliases without /admin prefix
     Route::get('/companies', [CompanyController::class, 'index']);
     Route::post('/companies', [CompanyController::class, 'store']);
     Route::post('/companies/{id}/toggle-status', [CompanyController::class, 'toggleStatus']);
-    Route::post('/companies/{id}/freeze', [CompanyController::class, 'toggleStatus']); // Convenient action alias
+    Route::post('/companies/{id}/freeze', [CompanyController::class, 'toggleStatus']);
     Route::post('/companies/{id}/unfreeze', [CompanyController::class, 'toggleStatus']);
     Route::post('/companies/{id}/assign-manager', [CompanyController::class, 'assignManager']);
 });
