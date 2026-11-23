@@ -98,12 +98,14 @@ export default function AppLayout({ title, subtitle, children }) {
       links.push({ label: 'المقاولات والمشاريع', href: '/contracting', icon: HardHat });
     }
 
-    // Accounting & Governance (General Accountant)
-    if (user.role === 'general_accountant') {
+    // Accounting & Governance (General Accountant & Branch Manager Read Access per Section 1.6 & UC-59..UC-63)
+    if (user.role === 'general_accountant' || user.role === 'branch_manager') {
       links.push({ label: 'شجرة الحسابات (COA)', href: '/accounting/chart-of-accounts', icon: BookOpen });
       links.push({ label: 'مراكز التكلفة', href: '/accounting/cost-centers', icon: Shield });
       links.push({ label: 'القيود اليومية', href: '/accounting/journal-entries', icon: FileText });
-      links.push({ label: 'السنوات المالية', href: '/accounting/fiscal-years', icon: Settings });
+      if (user.role === 'general_accountant') {
+        links.push({ label: 'السنوات المالية', href: '/accounting/fiscal-years', icon: Settings });
+      }
       links.push({ label: 'التقارير والقوائم المالية', href: '/reports', icon: BarChart3 });
     }
 

@@ -28,6 +28,18 @@ const apiRequest = async (path, options = {}) => {
 };
 
 test('Live E2E: Complete ERP System Verification', async (t) => {
+  // Check if server is running
+  try {
+    const probe = await fetch(`${BASE_URL}/tenant/info`, { signal: AbortSignal.timeout(1500) });
+    if (!probe || !probe.ok) {
+      t.skip('Backend server is not active on 127.0.0.1:8000; skipping live E2E suite.');
+      return;
+    }
+  } catch (e) {
+    t.skip(`Backend server is not active on 127.0.0.1:8000 (${e.message}); skipping live E2E suite. Start backend with 'php artisan serve' to execute.`);
+    return;
+  }
+
   let superAdminToken = null;
   let managerToken = null;
   let accountantToken = null;

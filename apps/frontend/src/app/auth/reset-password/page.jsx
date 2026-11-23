@@ -1,14 +1,16 @@
 'use client';
 
-import React, { useState, Suspense } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { useAuth } from '../../../context/AuthContext';
 import api from '../../../services/api';
 import { Lock, KeyRound, Mail, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
 
   const [email, setEmail] = useState(searchParams?.get('email') || '');
   const [token, setToken] = useState(searchParams?.get('token') || '');
@@ -17,6 +19,21 @@ function ResetPasswordForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
+
+  // Guest redirection: if already authenticated, redirect to role dashboard (UC-01)
+  useEffect(() => {
+    if (!authLoading && isAuthenticated && user) {
+      if (user.role === 'super_admin') {
+        router.push('/admin/dashboard');
+      } else if (user.role === 'branch_manager') {
+        router.push('/company/dashboard');
+      } else if (user.role === 'general_accountant') {
+        router.push('/accounting/dashboard');
+      } else {
+        router.push('/data-entry/dashboard');
+      }
+    }
+  }, [authLoading, isAuthenticated, user, router]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

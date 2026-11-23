@@ -1,15 +1,35 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useAuth } from '../../../context/AuthContext';
 import api from '../../../services/api';
 import { Mail, ArrowRight, CheckCircle2, AlertCircle } from 'lucide-react';
 
 export default function ForgotPasswordPage() {
+  const router = useRouter();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
+
+  // Guest redirection: if already authenticated, redirect to role dashboard (UC-01)
+  useEffect(() => {
+    if (!authLoading && isAuthenticated && user) {
+      if (user.role === 'super_admin') {
+        router.push('/admin/dashboard');
+      } else if (user.role === 'branch_manager') {
+        router.push('/company/dashboard');
+      } else if (user.role === 'general_accountant') {
+        router.push('/accounting/dashboard');
+      } else {
+        router.push('/data-entry/dashboard');
+      }
+    }
+  }, [authLoading, isAuthenticated, user, router]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
