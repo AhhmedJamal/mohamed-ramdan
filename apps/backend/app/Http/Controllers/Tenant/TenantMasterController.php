@@ -54,6 +54,11 @@ class TenantMasterController extends Controller
 
         $enriched = $tenants->map(function ($tenant) {
             $data = $tenant->toArray();
+            $data['full_name'] = $tenant->name;
+            $data['national_id'] = $tenant->national_id_or_cr;
+            $data['is_corporate'] = ($tenant->type === 'company');
+            $data['company_name'] = ($tenant->type === 'company' ? $tenant->name : null);
+            $data['cr_number'] = ($tenant->type === 'company' ? $tenant->national_id_or_cr : null);
             $data['type_label'] = Tenant::$typeArabicLabels[$tenant->type] ?? $tenant->type;
             return $data;
         });
@@ -61,6 +66,7 @@ class TenantMasterController extends Controller
         return response()->json([
             'status' => 'success',
             'data' => $enriched,
+            'tenants' => $enriched,
             'count' => $enriched->count(),
         ]);
     }
@@ -80,6 +86,11 @@ class TenantMasterController extends Controller
         }
 
         $data = $tenant->toArray();
+        $data['full_name'] = $tenant->name;
+        $data['national_id'] = $tenant->national_id_or_cr;
+        $data['is_corporate'] = ($tenant->type === 'company');
+        $data['company_name'] = ($tenant->type === 'company' ? $tenant->name : null);
+        $data['cr_number'] = ($tenant->type === 'company' ? $tenant->national_id_or_cr : null);
         $data['type_label'] = Tenant::$typeArabicLabels[$tenant->type] ?? $tenant->type;
 
         return response()->json([
@@ -98,6 +109,25 @@ class TenantMasterController extends Controller
                 'status' => 'error',
                 'message' => 'غير مصرح لك بإضافة مستأجر، الصلاحية لمدخل البيانات فقط',
             ], 403);
+        }
+
+        // Support frontend aliases
+        if (!$request->filled('name') && $request->filled('full_name')) {
+            $request->merge(['name' => $request->full_name]);
+        }
+        if (!$request->filled('national_id_or_cr')) {
+            if ($request->filled('national_id')) {
+                $request->merge(['national_id_or_cr' => $request->national_id]);
+            } elseif ($request->filled('cr_number')) {
+                $request->merge(['national_id_or_cr' => $request->cr_number]);
+            }
+        }
+        if (!$request->filled('type')) {
+            if ($request->has('is_corporate')) {
+                $request->merge(['type' => filter_var($request->is_corporate, FILTER_VALIDATE_BOOLEAN) ? 'company' : 'individual']);
+            } else {
+                $request->merge(['type' => 'individual']);
+            }
         }
 
         $validator = Validator::make($request->all(), [
@@ -136,6 +166,11 @@ class TenantMasterController extends Controller
         ]);
 
         $data = $tenant->toArray();
+        $data['full_name'] = $tenant->name;
+        $data['national_id'] = $tenant->national_id_or_cr;
+        $data['is_corporate'] = ($tenant->type === 'company');
+        $data['company_name'] = ($tenant->type === 'company' ? $tenant->name : null);
+        $data['cr_number'] = ($tenant->type === 'company' ? $tenant->national_id_or_cr : null);
         $data['type_label'] = Tenant::$typeArabicLabels[$tenant->type] ?? $tenant->type;
 
         return response()->json([
@@ -163,6 +198,21 @@ class TenantMasterController extends Controller
                 'status' => 'error',
                 'message' => 'المستأجر غير موجود',
             ], 404);
+        }
+
+        // Support frontend aliases
+        if (!$request->filled('name') && $request->filled('full_name')) {
+            $request->merge(['name' => $request->full_name]);
+        }
+        if (!$request->filled('national_id_or_cr')) {
+            if ($request->filled('national_id')) {
+                $request->merge(['national_id_or_cr' => $request->national_id]);
+            } elseif ($request->filled('cr_number')) {
+                $request->merge(['national_id_or_cr' => $request->cr_number]);
+            }
+        }
+        if (!$request->filled('type') && $request->has('is_corporate')) {
+            $request->merge(['type' => filter_var($request->is_corporate, FILTER_VALIDATE_BOOLEAN) ? 'company' : 'individual']);
         }
 
         // Business Rule UC-35: لا يمكن تغيير رقم الهوية إذا كانت هناك عقود مرتبطة
@@ -211,6 +261,11 @@ class TenantMasterController extends Controller
         ]));
 
         $data = $tenant->fresh()->toArray();
+        $data['full_name'] = $data['name'];
+        $data['national_id'] = $data['national_id_or_cr'];
+        $data['is_corporate'] = ($data['type'] === 'company');
+        $data['company_name'] = ($data['type'] === 'company' ? $data['name'] : null);
+        $data['cr_number'] = ($data['type'] === 'company' ? $data['national_id_or_cr'] : null);
         $data['type_label'] = Tenant::$typeArabicLabels[$data['type']] ?? $data['type'];
 
         return response()->json([

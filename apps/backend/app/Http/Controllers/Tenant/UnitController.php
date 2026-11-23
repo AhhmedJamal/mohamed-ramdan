@@ -53,6 +53,7 @@ class UnitController extends Controller
 
         $enriched = $units->map(function ($unit) {
             $data = $unit->toArray();
+            $data['unit_type'] = $unit->type;
             $data['current_tenant_name'] = $unit->activeContract?->tenant?->name ?? null;
             $data['contract_number'] = $unit->activeContract?->contract_number ?? null;
             $data['type_label'] = Unit::$typeArabicLabels[$unit->type] ?? $unit->type;
@@ -63,6 +64,7 @@ class UnitController extends Controller
         return response()->json([
             'success' => true,
             'property' => $property,
+            'data' => $enriched,
             'units' => $enriched,
         ], 200);
     }
@@ -79,6 +81,10 @@ class UnitController extends Controller
         $property = Property::find($propertyId);
         if (!$property) {
             return response()->json(['message' => 'العقار غير موجود'], 404);
+        }
+
+        if (!$request->filled('type') && $request->filled('unit_type')) {
+            $request->merge(['type' => $request->unit_type]);
         }
 
         $validator = Validator::make($request->all(), [
@@ -115,9 +121,16 @@ class UnitController extends Controller
         // Update units_count on property
         $property->increment('units_count');
 
+        $data = $unit->toArray();
+        $data['unit_type'] = $unit->type;
+        $data['type_label'] = Unit::$typeArabicLabels[$unit->type] ?? $unit->type;
+        $data['status_label'] = Unit::$statusArabicLabels[$unit->status] ?? $unit->status;
+
         return response()->json([
+            'success' => true,
             'message' => 'تم إضافة الوحدة بنجاح',
-            'unit' => $unit,
+            'data' => $data,
+            'unit' => $data,
         ], 201);
     }
 
@@ -157,6 +170,10 @@ class UnitController extends Controller
         $unit = Unit::where('property_id', $propertyId)->find($id);
         if (!$unit) {
             return response()->json(['message' => 'الوحدة غير موجودة'], 404);
+        }
+
+        if (!$request->filled('type') && $request->filled('unit_type')) {
+            $request->merge(['type' => $request->unit_type]);
         }
 
         $validator = Validator::make($request->all(), [
@@ -201,9 +218,16 @@ class UnitController extends Controller
         $unit->status = $request->status;
         $unit->save();
 
+        $data = $unit->toArray();
+        $data['unit_type'] = $unit->type;
+        $data['type_label'] = Unit::$typeArabicLabels[$unit->type] ?? $unit->type;
+        $data['status_label'] = Unit::$statusArabicLabels[$unit->status] ?? $unit->status;
+
         return response()->json([
-            'message' => 'تم تحديث بيانات الوحدة بنجاح',
-            'unit' => $unit,
+            'success' => true,
+            'message' => 'تم تحديث بيانات الوحدة بناح',
+            'data' => $data,
+            'unit' => $data,
         ], 200);
     }
 

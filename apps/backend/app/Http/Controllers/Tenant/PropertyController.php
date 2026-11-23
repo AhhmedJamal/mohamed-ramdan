@@ -53,6 +53,8 @@ class PropertyController extends Controller
         $enriched = $properties->map(function ($property) {
             $data = $property->toArray();
             $data['type_label'] = Property::$typeArabicLabels[$property->type] ?? $property->type;
+            $data['property_type'] = $property->type;
+            $data['total_units'] = $property->units_count;
             $data['vacant_units_count'] = $property->units->where('status', 'vacant')->count();
             $data['occupied_units_count'] = $property->units->where('status', 'occupied')->count();
             $data['maintenance_units_count'] = $property->units->where('status', 'under_maintenance')->count();
@@ -61,6 +63,7 @@ class PropertyController extends Controller
 
         return response()->json([
             'success' => true,
+            'data' => $enriched,
             'properties' => $enriched,
         ], 200);
     }
@@ -78,12 +81,15 @@ class PropertyController extends Controller
 
         $data = $property->toArray();
         $data['type_label'] = Property::$typeArabicLabels[$property->type] ?? $property->type;
+        $data['property_type'] = $property->type;
+        $data['total_units'] = $property->units_count;
         $data['vacant_units_count'] = $property->units->where('status', 'vacant')->count();
         $data['occupied_units_count'] = $property->units->where('status', 'occupied')->count();
         $data['maintenance_units_count'] = $property->units->where('status', 'under_maintenance')->count();
 
         return response()->json([
             'success' => true,
+            'data' => $data,
             'property' => $data,
         ], 200);
     }
@@ -95,6 +101,23 @@ class PropertyController extends Controller
     {
         if (!$this->authorizeDataEntry($request)) {
             return response()->json(['message' => 'غير مصرح لك بإضافة عقارات'], 403);
+        }
+
+        // Handle frontend aliases
+        if (!$request->filled('type') && $request->filled('property_type')) {
+            $request->merge(['type' => $request->property_type]);
+        }
+        if (!$request->filled('units_count') && $request->filled('total_units')) {
+            $request->merge(['units_count' => $request->total_units]);
+        }
+        if (!$request->filled('address')) {
+            $parts = array_filter([$request->street, $request->district, $request->city]);
+            if (!empty($parts)) {
+                $request->merge(['address' => implode('، ', $parts)]);
+            }
+        }
+        if (!$request->filled('unit_type')) {
+            $request->merge(['unit_type' => 'apartment']);
         }
 
         $validator = Validator::make($request->all(), [
@@ -170,9 +193,13 @@ class PropertyController extends Controller
                 ]);
             }
 
+            $loaded = $property->load(['costCenter', 'units']);
+
             return response()->json([
+                'success' => true,
                 'message' => 'تم إنشاء العقار ووحداته ومركز التكلفة المرتبط بنجاح',
-                'property' => $property->load(['costCenter', 'units']),
+                'data' => $loaded,
+                'property' => $loaded,
             ], 201);
         });
     }
@@ -189,6 +216,16 @@ class PropertyController extends Controller
         $property = Property::find($id);
         if (!$property) {
             return response()->json(['message' => 'العقار غير موجود'], 404);
+        }
+
+        if (!$request->filled('type') && $request->filled('property_type')) {
+            $request->merge(['type' => $request->property_type]);
+        }
+        if (!$request->filled('address')) {
+            $parts = array_filter([$request->street, $request->district, $request->city]);
+            if (!empty($parts)) {
+                $request->merge(['address' => implode('، ', $parts)]);
+            }
         }
 
         $validator = Validator::make($request->all(), [
@@ -225,9 +262,13 @@ class PropertyController extends Controller
             }
         }
 
+        $loaded = $property->load(['costCenter', 'units']);
+
         return response()->json([
+            'success' => true,
             'message' => 'تم تحديث بيانات العقار بنجاح',
-            'property' => $property->load(['costCenter', 'units']),
+            'data' => $loaded,
+            'property' => $loaded,
         ], 200);
     }
 
