@@ -98,6 +98,20 @@ class SupplierInvoiceController extends Controller
             ], 403);
         }
 
+        if (!$request->filled('cost_center_id')) {
+            $defaultCc = CostCenter::first();
+            if ($defaultCc) {
+                $request->merge(['cost_center_id' => $defaultCc->id]);
+            }
+        }
+
+        if (!$request->filled('counter_account_id')) {
+            $defaultAcc = Account::where('root_type', 'liabilities')->first() ?? Account::where('root_type', 'assets')->first();
+            if ($defaultAcc) {
+                $request->merge(['counter_account_id' => $defaultAcc->id]);
+            }
+        }
+
         $validator = Validator::make($request->all(), [
             'supplier_name' => 'required|string|max:100',
             'invoice_number' => 'required|string|max:50|unique:tenant.supplier_invoices,invoice_number',

@@ -79,6 +79,13 @@ class ContractorInvoiceController extends Controller
         $enriched = $invoices->map(function ($inv) {
             $data = $inv->toArray();
             $data['status_label'] = ContractorInvoice::$statusArabicLabels[$inv->status] ?? $inv->status;
+            $data['project_name'] = $inv->costCenter?->name ?? 'مشروع مقاولات عام';
+            $data['contract_number'] = $inv->invoice_number;
+            $data['invoice_date'] = is_string($inv->date) ? $inv->date : ($inv->date ? $inv->date->toDateString() : null);
+            $data['claim_amount'] = (float) $inv->gross_total;
+            $data['retention_amount'] = round((float) $inv->gross_total * 0.10, 2);
+            $data['vat_amount'] = (float) $inv->tax_amount;
+            $data['net_payable'] = (float) $inv->grand_total;
             $data['remaining_amount'] = (float)$inv->grand_total - (float)$inv->paid_amount;
             return $data;
         });
@@ -106,6 +113,13 @@ class ContractorInvoiceController extends Controller
 
         $data = $invoice->toArray();
         $data['status_label'] = ContractorInvoice::$statusArabicLabels[$invoice->status] ?? $invoice->status;
+        $data['project_name'] = $invoice->costCenter?->name ?? 'مشروع مقاولات عام';
+        $data['contract_number'] = $invoice->invoice_number;
+        $data['invoice_date'] = is_string($invoice->date) ? $invoice->date : ($invoice->date ? $invoice->date->toDateString() : null);
+        $data['claim_amount'] = (float) $invoice->gross_total;
+        $data['retention_amount'] = round((float) $invoice->gross_total * 0.10, 2);
+        $data['vat_amount'] = (float) $invoice->tax_amount;
+        $data['net_payable'] = (float) $invoice->grand_total;
         $data['remaining_amount'] = (float)$invoice->grand_total - (float)$invoice->paid_amount;
 
         return response()->json([
@@ -124,6 +138,44 @@ class ContractorInvoiceController extends Controller
                 'status' => 'error',
                 'message' => 'غير مصرح لك بإنشاء مستخلص، الصلاحية لمدخل البيانات فقط',
             ], 403);
+        }
+
+        // Support frontend aliases
+        if (!$request->filled('date') && $request->filled('invoice_date')) {
+            $request->merge(['date' => $request->invoice_date]);
+        }
+        if (!$request->filled('invoice_number')) {
+            if ($request->filled('contract_number')) {
+                $request->merge(['invoice_number' => $request->contract_number]);
+            } else {
+                $request->merge(['invoice_number' => 'CI-' . date('Ymd') . '-' . rand(1000, 9999)]);
+            }
+        }
+        if (!$request->filled('cost_center_id')) {
+            $cc = null;
+            if ($request->filled('project_name')) {
+                $cc = CostCenter::where('name', $request->project_name)->first();
+            }
+            if (!$cc) {
+                $cc = CostCenter::where('type', 'contracting_project')->first() ?? CostCenter::first();
+            }
+            if ($cc) {
+                $request->merge(['cost_center_id' => $cc->id]);
+            }
+        }
+        if (!$request->has('items') && $request->filled('claim_amount')) {
+            $claim = (float) $request->claim_amount;
+            $request->merge([
+                'items' => [
+                    [
+                        'item_name' => $request->project_name ?? 'مستخلص مقاولات',
+                        'quantity' => 1,
+                        'unit' => 'مستخلص',
+                        'unit_price' => $claim,
+                        'notes' => $request->notes ?? null,
+                    ]
+                ]
+            ]);
         }
 
         $validator = Validator::make($request->all(), [
