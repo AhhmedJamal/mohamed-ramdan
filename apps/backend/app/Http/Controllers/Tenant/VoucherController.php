@@ -144,6 +144,17 @@ class VoucherController extends Controller
     }
 
     /**
+     * Generic store method to route based on type
+     */
+    public function store(Request $request): JsonResponse
+    {
+        if ($request->input('type') === 'disbursement') {
+            return $this->storeDisbursement($request);
+        }
+        return $this->storeReceipt($request);
+    }
+
+    /**
      * Create draft receipt voucher (UC-43)
      */
     public function storeReceipt(Request $request): JsonResponse
@@ -153,6 +164,31 @@ class VoucherController extends Controller
                 'status' => 'error',
                 'message' => 'غير مصرح لك بإنشاء سند قبض، الصلاحية لمدخل البيانات فقط',
             ], 403);
+        }
+
+        // Auto-resolve default cash/bank and revenue accounts if not explicitly chosen
+        if (!$request->filled('debit_account_id')) {
+            $cash = Account::where('root_type', 'assets')
+                ->where('nature', 'debit')
+                ->where('account_type', 'sub')
+                ->first() ?? Account::where('root_type', 'assets')->first();
+            if ($cash) {
+                $request->merge(['debit_account_id' => $cash->id]);
+            }
+        }
+        if (!$request->filled('credit_account_id')) {
+            $rev = Account::where('root_type', 'revenues')
+                ->where('nature', 'credit')
+                ->first() ?? Account::where('root_type', 'revenues')->first();
+            if ($rev) {
+                $request->merge(['credit_account_id' => $rev->id]);
+            }
+        }
+        if (!$request->filled('date')) {
+            $request->merge(['date' => date('Y-m-d')]);
+        }
+        if (!$request->filled('payment_method')) {
+            $request->merge(['payment_method' => 'bank_transfer']);
         }
 
         $validator = Validator::make($request->all(), [
@@ -253,6 +289,37 @@ class VoucherController extends Controller
                 'status' => 'error',
                 'message' => 'غير مصرح لك بإنشاء سند صرف، الصلاحية لمدخل البيانات فقط',
             ], 403);
+        }
+
+        // Auto-resolve default accounts and cost center if not provided
+        if (!$request->filled('debit_account_id')) {
+            $exp = Account::where('root_type', 'expenses')
+                ->where('nature', 'debit')
+                ->first() ?? Account::where('root_type', 'expenses')->first();
+            if ($exp) {
+                $request->merge(['debit_account_id' => $exp->id]);
+            }
+        }
+        if (!$request->filled('credit_account_id')) {
+            $cash = Account::where('root_type', 'assets')
+                ->where('nature', 'debit')
+                ->where('account_type', 'sub')
+                ->first() ?? Account::where('root_type', 'assets')->first();
+            if ($cash) {
+                $request->merge(['credit_account_id' => $cash->id]);
+            }
+        }
+        if (!$request->filled('cost_center_id')) {
+            $cc = CostCenter::where('status', 'active')->first();
+            if ($cc) {
+                $request->merge(['cost_center_id' => $cc->id]);
+            }
+        }
+        if (!$request->filled('date')) {
+            $request->merge(['date' => date('Y-m-d')]);
+        }
+        if (!$request->filled('payment_method')) {
+            $request->merge(['payment_method' => 'bank_transfer']);
         }
 
         $validator = Validator::make($request->all(), [

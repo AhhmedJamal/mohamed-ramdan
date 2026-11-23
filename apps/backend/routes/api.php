@@ -211,7 +211,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('role:data_entry')->group(function () {
         Route::post('/vouchers/receipt', [VoucherController::class, 'storeReceipt']);
         Route::post('/vouchers/disbursement', [VoucherController::class, 'storeDisbursement']);
-        Route::post('/vouchers', [VoucherController::class, 'storeReceipt']); // Generic helper
+        Route::post('/vouchers', [VoucherController::class, 'store']); // Generic helper (routes by type)
         Route::put('/vouchers/{id}', [VoucherController::class, 'update']);
     });
     Route::middleware('role:general_accountant')->group(function () {
