@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Tenant;
 
 use App\Http\Controllers\Controller;
 use App\Models\Tenant\ContractAttachment;
+use App\Models\Tenant\Notification;
 use App\Models\Tenant\Property;
 use App\Models\Tenant\RentalContract;
 use App\Models\Tenant\Unit;
@@ -54,7 +55,7 @@ class RentalContractController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = RentalContract::with(['tenant', 'property', 'unit', 'installments']);
+        $query = RentalContract::with(['tenant', 'property', 'unit', 'installments', 'attachments']);
 
         if ($request->filled('status') && $request->status !== 'all') {
             $query->where('status', $request->status);
@@ -143,6 +144,23 @@ class RentalContractController extends Controller
                 'status' => 'error',
                 'message' => 'غير مصرح لك بإنشاء عقد إيجار، الصلاحية لمدخل البيانات فقط',
             ], 403);
+        }
+
+        // Support payload aliases and automatic field calculations
+        if ($request->has('annual_rent') && !$request->has('total_rent')) {
+            $request->merge(['total_rent' => $request->annual_rent]);
+        }
+        if ($request->has('frequency') && !$request->has('collection_cycle')) {
+            $request->merge(['collection_cycle' => $request->frequency]);
+        }
+        if (!$request->has('contract_type')) {
+            $request->merge(['contract_type' => 'company_to_tenant']);
+        }
+        if (!$request->has('duration_months') && $request->filled('start_date') && $request->filled('end_date')) {
+            $start = Carbon::parse($request->start_date);
+            $end = Carbon::parse($request->end_date);
+            $months = max(1, (int) round($start->diffInMonths($end)));
+            $request->merge(['duration_months' => $months]);
         }
 
         $validator = Validator::make($request->all(), [
@@ -375,6 +393,15 @@ class RentalContractController extends Controller
             'cancellation_requested_by' => $request->user()->id,
         ]);
 
+        // UC-41A: Notify Branch Manager of pending cancellation request
+        Notification::create([
+            'role' => 'branch_manager',
+            'type' => 'contract_cancellation_request',
+            'title' => 'طلب إلغاء عقد إيجار',
+            'message' => "طلب إلغاء للعقد رقم {$contract->contract_number}، السبب: {$request->cancellation_reason}",
+            'data' => ['contract_id' => $contract->id],
+        ]);
+
         return response()->json([
             'status' => 'success',
             'message' => 'تم إرسال طلب إلغاء العقد لمدير الشركة للموافقة',
@@ -422,6 +449,16 @@ class RentalContractController extends Controller
             // Cancel all unpaid installments
             $contract->installments()->where('status', 'due')->update(['status' => 'cancelled']);
         });
+
+        // UC-42: Notify requester (Data Entry) of approval
+        Notification::create([
+            'user_id' => $contract->cancellation_requested_by ?? $contract->created_by,
+            'role' => 'data_entry',
+            'type' => 'contract_cancellation_approved',
+            'title' => 'تمت الموافقة على إلغاء العقد',
+            'message' => "تمت الموافقة على إلغاء العقد رقم {$contract->contract_number} وإتاحة الوحدة كشاغرة",
+            'data' => ['contract_id' => $contract->id],
+        ]);
 
         return response()->json([
             'status' => 'success',
@@ -475,6 +512,16 @@ class RentalContractController extends Controller
         $contract->update([
             'status' => 'active',
             'rejection_reason' => $request->rejection_reason,
+        ]);
+
+        // UC-42: Notify requester (Data Entry) of rejection with reason
+        Notification::create([
+            'user_id' => $contract->cancellation_requested_by ?? $contract->created_by,
+            'role' => 'data_entry',
+            'type' => 'contract_cancellation_rejected',
+            'title' => 'تم رفض طلب إلغاء العقد',
+            'message' => "تم رفض طلب إلغاء العقد رقم {$contract->contract_number}، سبب الرفض: {$request->rejection_reason}",
+            'data' => ['contract_id' => $contract->id],
         ]);
 
         return response()->json([

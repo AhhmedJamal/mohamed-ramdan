@@ -36,6 +36,7 @@ class RentalContractTest extends TestCase
 
         // Run migrations on tenant to ensure attachments table exists
         $this->tenantManager->switchConnection($this->company);
+        DB::connection('tenant')->statement('PRAGMA foreign_keys = OFF;');
         DB::connection('tenant')->table('contract_attachments')->delete();
         DB::connection('tenant')->table('installments')->delete();
         DB::connection('tenant')->table('rental_contracts')->delete();
@@ -43,6 +44,7 @@ class RentalContractTest extends TestCase
         DB::connection('tenant')->table('units')->delete();
         DB::connection('tenant')->table('properties')->delete();
         DB::connection('tenant')->table('cost_centers')->delete();
+        DB::connection('tenant')->statement('PRAGMA foreign_keys = ON;');
 
         // Seed basic property and unit
         $cc = CostCenter::create([
@@ -258,6 +260,16 @@ class RentalContractTest extends TestCase
             'status' => 'vacant',
         ], 'tenant');
 
+        $this->assertDatabaseHas('notifications', [
+            'role' => 'branch_manager',
+            'type' => 'contract_cancellation_request',
+        ], 'tenant');
+
+        $this->assertDatabaseHas('notifications', [
+            'role' => 'data_entry',
+            'type' => 'contract_cancellation_approved',
+        ], 'tenant');
+
         $dueCount = DB::connection('tenant')->table('installments')
             ->where('contract_id', $contractId)
             ->where('status', 'due')
@@ -345,6 +357,13 @@ class RentalContractTest extends TestCase
 
         $response2->assertStatus(200);
         $response2->assertJsonPath('data.status', 'active');
+
+        $this->tenantManager->switchConnection($this->company);
+        $this->assertDatabaseHas('notifications', [
+            'role' => 'data_entry',
+            'type' => 'contract_cancellation_rejected',
+        ], 'tenant');
+        $this->tenantManager->resetToCentral();
     }
 
     public function test_contract_attachment_upload_and_deletion(): void
