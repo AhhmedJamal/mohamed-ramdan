@@ -7,7 +7,8 @@ import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import {
   Building2, LogOut, Shield, User, Bell, CheckCheck, RefreshCw, X, AlertCircle, FileText, CheckCircle2,
-  LayoutDashboard, Building, Key, Receipt, DollarSign, BookOpen, HardHat, BarChart3, Users, Settings
+  LayoutDashboard, Building, Key, Receipt, DollarSign, BookOpen, HardHat, BarChart3, Users, Settings,
+  Lock, KeyRound, Save
 } from 'lucide-react';
 
 export default function AppLayout({ title, subtitle, children }) {
@@ -18,6 +19,86 @@ export default function AppLayout({ title, subtitle, children }) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifOpen, setNotifOpen] = useState(false);
   const [loadingNotifs, setLoadingNotifs] = useState(false);
+
+  // Profile Modal State (UC-05 & UC-06)
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [profileTab, setProfileTab] = useState('info'); // 'info' | 'password'
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileError, setProfileError] = useState(null);
+  const [profileSuccess, setProfileSuccess] = useState(null);
+  const [profileData, setProfileData] = useState({
+    name: user?.name || '',
+    email: user?.email || '',
+    mobile: user?.mobile || '',
+  });
+  const [passwordData, setPasswordData] = useState({
+    current_password: '',
+    new_password: '',
+    new_password_confirmation: '',
+  });
+
+  const openProfileModal = async () => {
+    setProfileError(null);
+    setProfileSuccess(null);
+    setProfileModalOpen(true);
+    setProfileTab('info');
+    try {
+      const res = await api.get('/profile');
+      if (res.data?.data) {
+        setProfileData({
+          name: res.data.data.name || '',
+          email: res.data.data.email || '',
+          mobile: res.data.data.mobile || '',
+        });
+      }
+    } catch {
+      // fallback to user in auth context
+    }
+  };
+
+  const handleUpdateProfile = async (e) => {
+    e.preventDefault();
+    setProfileLoading(true);
+    setProfileError(null);
+    setProfileSuccess(null);
+    try {
+      const res = await api.put('/profile', {
+        name: profileData.name,
+        mobile: profileData.mobile,
+      });
+      setProfileSuccess(res.data?.message || 'تم تحديث البيانات الشخصية بنجاح');
+      const stored = localStorage.getItem('auth_user');
+      if (stored) {
+        const u = JSON.parse(stored);
+        u.name = profileData.name;
+        u.mobile = profileData.mobile;
+        localStorage.setItem('auth_user', JSON.stringify(u));
+      }
+    } catch (err) {
+      setProfileError(err.response?.data?.message || 'حدث خطأ أثناء تحديث الملف الشخصي');
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    setProfileLoading(true);
+    setProfileError(null);
+    setProfileSuccess(null);
+    try {
+      const res = await api.post('/profile/change-password', passwordData);
+      setProfileSuccess(res.data?.message || 'تم تغيير كلمة المرور بنجاح. سيتم توجيهك لتسجيل الدخول.');
+      setPasswordData({ current_password: '', new_password: '', new_password_confirmation: '' });
+      setTimeout(() => {
+        logout();
+      }, 2000);
+    } catch (err) {
+      setProfileError(err.response?.data?.message || 'حدث خطأ أثناء تغيير كلمة المرور');
+    } finally {
+      setProfileLoading(false);
+    }
+  };
 
   const roleLabels = {
     super_admin: 'أدمن عام النظام',
@@ -181,13 +262,22 @@ export default function AppLayout({ title, subtitle, children }) {
               </div>
             </div>
           </div>
-          <button
-            onClick={logout}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium text-rose-300 hover:text-white hover:bg-rose-950/40 rounded-lg border border-rose-900/40 transition-colors"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            <span>تسجيل الخروج</span>
-          </button>
+          <div className="grid grid-cols-2 gap-2 mt-2">
+            <button
+              onClick={openProfileModal}
+              className="flex items-center justify-center gap-1.5 px-2.5 py-2 text-[11px] font-medium text-slate-200 hover:text-white hover:bg-slate-800 rounded-lg border border-slate-700 transition-colors"
+            >
+              <User className="w-3.5 h-3.5 text-amber-400" />
+              <span>الملف الشخصي</span>
+            </button>
+            <button
+              onClick={logout}
+              className="flex items-center justify-center gap-1.5 px-2.5 py-2 text-[11px] font-medium text-rose-300 hover:text-white hover:bg-rose-950/40 rounded-lg border border-rose-900/40 transition-colors"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>تسجيل الخروج</span>
+            </button>
+          </div>
         </div>
       </aside>
 
@@ -258,6 +348,202 @@ export default function AppLayout({ title, subtitle, children }) {
         {/* Scrollable Page Body */}
         <main className="flex-1 overflow-y-auto p-8">{children}</main>
       </div>
+
+      {/* User Profile & Password Modal (UC-05 & UC-06) */}
+      {profileModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-2xl w-full max-w-md overflow-hidden">
+            {/* Header */}
+            <div className="p-5 bg-slate-900 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-500 font-bold text-sm">
+                  <User className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm">إدارة الملف الشخصي</h3>
+                  <p className="text-[10px] text-slate-400">تعديل البيانات وكلمة المرور (UC-05 & UC-06)</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setProfileModalOpen(false)}
+                className="text-slate-400 hover:text-white transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Tabs */}
+            <div className="flex border-b border-slate-200 bg-slate-50 text-xs">
+              <button
+                onClick={() => {
+                  setProfileTab('info');
+                  setProfileError(null);
+                  setProfileSuccess(null);
+                }}
+                className={`flex-1 py-3 font-bold text-center border-b-2 transition-all ${
+                  profileTab === 'info'
+                    ? 'border-amber-500 text-amber-600 bg-white'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                البيانات الشخصية
+              </button>
+              <button
+                onClick={() => {
+                  setProfileTab('password');
+                  setProfileError(null);
+                  setProfileSuccess(null);
+                }}
+                className={`flex-1 py-3 font-bold text-center border-b-2 transition-all ${
+                  profileTab === 'password'
+                    ? 'border-amber-500 text-amber-600 bg-white'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                تغيير كلمة المرور
+              </button>
+            </div>
+
+            <div className="p-6">
+              {profileError && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-red-500 mt-0.5" />
+                  <span>{profileError}</span>
+                </div>
+              )}
+
+              {profileSuccess && (
+                <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-700 text-xs flex items-start gap-2">
+                  <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-500 mt-0.5" />
+                  <span>{profileSuccess}</span>
+                </div>
+              )}
+
+              {/* TAB 1: Profile Info (UC-05) */}
+              {profileTab === 'info' && (
+                <form onSubmit={handleUpdateProfile} className="space-y-4 text-xs">
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">الاسم الكامل *</label>
+                    <input
+                      type="text"
+                      required
+                      minLength={3}
+                      maxLength={100}
+                      value={profileData.name}
+                      onChange={(e) => setProfileData({ ...profileData, name: e.target.value })}
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-amber-500 focus:bg-white text-slate-900"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">البريد الإلكتروني (غير قابل للتعديل)</label>
+                    <input
+                      type="email"
+                      readOnly
+                      disabled
+                      value={profileData.email}
+                      className="w-full p-2.5 bg-slate-100 border border-slate-200 rounded-xl text-xs text-slate-500 font-mono cursor-not-allowed"
+                    />
+                    <p className="text-[10px] text-slate-400 mt-1">وفقاً لوثيقة SRS: يتم تعديل البريد فقط عبر مدير النظام.</p>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">رقم الجوال (05xxxxxxxx) *</label>
+                    <input
+                      type="text"
+                      required
+                      maxLength={10}
+                      value={profileData.mobile}
+                      onChange={(e) => setProfileData({ ...profileData, mobile: e.target.value })}
+                      placeholder="05XXXXXXXX"
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:ring-2 focus:ring-amber-500 focus:bg-white text-slate-900"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => setProfileModalOpen(false)}
+                      className="px-4 py-2 border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 text-xs"
+                    >
+                      إلغاء
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={profileLoading}
+                      className="flex items-center gap-1.5 px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl text-xs shadow transition-colors disabled:opacity-50"
+                    >
+                      <Save className="w-3.5 h-3.5" />
+                      <span>{profileLoading ? 'جاري الحفظ...' : 'حفظ التعديلات'}</span>
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* TAB 2: Change Password (UC-06) */}
+              {profileTab === 'password' && (
+                <form onSubmit={handleChangePassword} className="space-y-4 text-xs">
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">كلمة المرور الحالية *</label>
+                    <input
+                      type="password"
+                      required
+                      value={passwordData.current_password}
+                      onChange={(e) => setPasswordData({ ...passwordData, current_password: e.target.value })}
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-amber-500 focus:bg-white text-slate-900"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">كلمة المرور الجديدة (8 أحرف على الأقل) *</label>
+                    <input
+                      type="password"
+                      required
+                      minLength={8}
+                      value={passwordData.new_password}
+                      onChange={(e) => setPasswordData({ ...passwordData, new_password: e.target.value })}
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-amber-500 focus:bg-white text-slate-900"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">تأكيد كلمة المرور الجديدة *</label>
+                    <input
+                      type="password"
+                      required
+                      value={passwordData.new_password_confirmation}
+                      onChange={(e) => setPasswordData({ ...passwordData, new_password_confirmation: e.target.value })}
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-amber-500 focus:bg-white text-slate-900"
+                    />
+                  </div>
+
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-800 leading-relaxed">
+                    <span className="font-bold">تنبيه أمني (UC-06):</span> سيؤدي تغيير كلمة المرور إلى إنهاء كافة الجلسات النشطة للمستخدم على جميع الأجهزة فوراً وتسجيل الخروج.
+                  </div>
+
+                  <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => setProfileModalOpen(false)}
+                      className="px-4 py-2 border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 text-xs"
+                    >
+                      إلغاء
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={profileLoading}
+                      className="flex items-center gap-1.5 px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-xl text-xs shadow transition-colors disabled:opacity-50"
+                    >
+                      <Lock className="w-3.5 h-3.5" />
+                      <span>{profileLoading ? 'جاري التغيير...' : 'تغيير كلمة المرور'}</span>
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -74,7 +74,7 @@ api.interceptors.response.use(
         }
       }
 
-      if (status === 403 && data?.error_code === 'COMPANY_FROZEN') {
+      if (status === 403 && (data?.error_code === 'COMPANY_FROZEN' || data?.message?.includes('مجمدة'))) {
         localStorage.removeItem('auth_token');
         localStorage.removeItem('auth_user');
         localStorage.removeItem('auth_company');

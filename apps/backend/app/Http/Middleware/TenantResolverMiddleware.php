@@ -32,10 +32,11 @@ class TenantResolverMiddleware
             ], 404);
         }
 
-        // Frozen Company Enforcement (AD-02)
+        // Frozen Company Enforcement (UC-09 & NFR-003)
         if ($company->isFrozen()) {
             return response()->json([
                 'success' => false,
+                'error_code' => 'COMPANY_FROZEN',
                 'message' => 'الشركة مجمدة، يرجى مراجعة الإدارة',
             ], 403);
         }

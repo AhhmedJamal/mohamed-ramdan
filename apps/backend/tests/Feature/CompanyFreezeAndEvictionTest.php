@@ -151,4 +151,21 @@ class CompanyFreezeAndEvictionTest extends TestCase
             ->first();
         $this->assertNotNull($log);
     }
+
+    public function test_frozen_company_middleware_blocks_direct_tenant_requests(): void
+    {
+        $comp1 = Company::where('subdomain', 'comp1')->first();
+        $comp1->status = 'frozen';
+        $comp1->save();
+
+        $response = $this->withHeader('X-Tenant-Subdomain', 'comp1')
+            ->getJson('/api/tenant/info');
+
+        $response->assertStatus(403)
+            ->assertJson([
+                'success' => false,
+                'error_code' => 'COMPANY_FROZEN',
+                'message' => 'الشركة مجمدة، يرجى مراجعة الإدارة',
+            ]);
+    }
 }
