@@ -82,6 +82,22 @@ class CompanyController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
+        // Support field aliases for flexible client integration
+        $data = $request->all();
+        if (isset($data['activity']) && !isset($data['trade_activity'])) {
+            $data['trade_activity'] = $data['activity'];
+        }
+        if (isset($data['detailed_address']) && !isset($data['address'])) {
+            $data['address'] = $data['detailed_address'];
+        }
+        if (isset($data['manager_password']) && !isset($data['temporary_password'])) {
+            $data['temporary_password'] = $data['manager_password'];
+        }
+        if (isset($data['manager_phone']) && !isset($data['manager_mobile'])) {
+            $data['manager_mobile'] = $data['manager_phone'];
+        }
+        $request->merge($data);
+
         // 1. Validation per SRS UC-07
         $validator = Validator::make($request->all(), [
             'name' => ['required', 'string', 'min:3', 'max:100', 'unique:companies,name'],
