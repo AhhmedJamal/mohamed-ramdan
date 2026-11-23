@@ -29,9 +29,33 @@ export default function CompanyDashboard() {
           api.get('/contracts').catch(() => ({ data: { data: [] } })),
         ]);
 
-        const props = propRes.data.data || [];
-        const contracts = contractRes.data.data || [];
+        const props = propRes.data.data || propRes.data.properties || [];
+        const contracts = contractRes.data.data || contractRes.data.contracts || [];
         setRecentContracts(contracts.slice(0, 5));
+
+        let totalUnits = 0;
+        let vacantUnits = 0;
+        let rentedUnits = 0;
+        props.forEach((p) => {
+          totalUnits += (p.units_count ?? p.total_units ?? (p.units?.length || 0));
+          vacantUnits += (p.vacant_units_count ?? 0);
+          rentedUnits += (p.occupied_units_count ?? 0);
+        });
+
+        const activeContracts = contracts.filter((c) => c.status === 'active');
+        const overdueContracts = contracts.filter((c) => c.status === 'overdue');
+        const occRate = totalUnits > 0 ? Math.round((rentedUnits / totalUnits) * 100) : 0;
+
+        setMetrics({
+          total_properties: props.length,
+          total_units: totalUnits,
+          vacant_units: vacantUnits,
+          rented_units: rentedUnits,
+          occupancy_rate: occRate,
+          active_contracts: activeContracts.length,
+          overdue_installments: overdueContracts.length,
+          overdue_amount: overdueContracts.reduce((sum, c) => sum + (parseFloat(c.annual_rent || c.total_amount) || 0), 0),
+        });
       } catch (err) {
         console.error('Failed to load company dashboard data', err);
       } finally {
