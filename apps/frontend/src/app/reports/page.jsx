@@ -487,11 +487,53 @@ export default function ReportsPage() {
 
               {/* 4. INCOME STATEMENT TAB (UC-58) */}
               {activeTab === 'income-statement' && (
-                <div className="max-w-2xl mx-auto space-y-6">
-                  {/* Revenues */}
-                  <div className="border border-slate-200 rounded-xl overflow-hidden">
+                <div className="max-w-3xl mx-auto space-y-6">
+                  {/* Summary KPI Badges */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="p-4 bg-emerald-50/70 border border-emerald-200 rounded-2xl">
+                      <span className="text-xs text-emerald-700 font-medium block">صافي المبيعات والإيرادات</span>
+                      <span className="text-lg font-bold font-mono text-emerald-900">
+                        {Number(reportData.revenues?.total || reportData.net_sales || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} ر.س
+                      </span>
+                    </div>
+                    <div className="p-4 bg-rose-50/70 border border-rose-200 rounded-2xl">
+                      <span className="text-xs text-rose-700 font-medium block">تكلفة المبيعات والمصروفات</span>
+                      <span className="text-lg font-bold font-mono text-rose-900">
+                        {Number(reportData.expenses?.total || reportData.operating_expenses || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} ر.س
+                      </span>
+                    </div>
+                    <div className={`p-4 rounded-2xl border ${
+                      reportData.is_profit ? 'bg-slate-900 text-white border-slate-800' : 'bg-rose-950 text-white border-rose-900'
+                    }`}>
+                      <span className="text-xs opacity-75 font-medium block">صافي الربح / (الخسارة) النهائي</span>
+                      <span className={`text-lg font-bold font-mono ${reportData.is_profit ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {Number(reportData.net_profit || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} ر.س
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Multi-step Breakdown */}
+                  {reportData.gross_profit !== undefined && (
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs space-y-2">
+                      <div className="flex justify-between items-center py-1 border-b border-slate-200">
+                        <span className="font-semibold text-slate-700">صافي المبيعات (Net Sales)</span>
+                        <span className="font-mono font-bold text-slate-900">{Number(reportData.net_sales || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} ر.س</span>
+                      </div>
+                      <div className="flex justify-between items-center py-1 border-b border-slate-200">
+                        <span className="font-semibold text-slate-700">تكلفة المبيعات / المشتريات (COGS)</span>
+                        <span className="font-mono font-bold text-slate-900">{Number(reportData.cost_of_goods_sold || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} ر.س</span>
+                      </div>
+                      <div className="flex justify-between items-center py-1.5 font-bold text-amber-900 bg-amber-50/80 px-2 rounded-lg">
+                        <span>مجمل الربح / (الخسارة) (Gross Profit)</span>
+                        <span className="font-mono">{Number(reportData.gross_profit || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} ر.س</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Revenues Items */}
+                  <div className="border border-slate-200 rounded-2xl overflow-hidden">
                     <div className="p-3 bg-emerald-50 text-emerald-900 font-bold flex justify-between">
-                      <span>الإيرادات (Revenues)</span>
+                      <span>تفاصيل الإيرادات والمبيعات</span>
                       <span className="font-mono">{Number(reportData.revenues?.total || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} ر.س</span>
                     </div>
                     <table className="w-full text-right text-xs divide-y divide-slate-100">
@@ -507,10 +549,10 @@ export default function ReportsPage() {
                     </table>
                   </div>
 
-                  {/* Expenses */}
-                  <div className="border border-slate-200 rounded-xl overflow-hidden">
+                  {/* Expenses Items */}
+                  <div className="border border-slate-200 rounded-2xl overflow-hidden">
                     <div className="p-3 bg-rose-50 text-rose-900 font-bold flex justify-between">
-                      <span>المصروفات (Expenses)</span>
+                      <span>تفاصيل المصروفات والتكاليف</span>
                       <span className="font-mono">{Number(reportData.expenses?.total || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} ر.س</span>
                     </div>
                     <table className="w-full text-right text-xs divide-y divide-slate-100">
@@ -526,13 +568,13 @@ export default function ReportsPage() {
                     </table>
                   </div>
 
-                  {/* Net Profit Summary */}
+                  {/* Net Profit Final Box */}
                   <div className="p-5 rounded-2xl bg-slate-900 text-white flex items-center justify-between shadow-lg">
                     <div>
-                      <span className="text-xs text-slate-400 block">صافي الربح / (الخسارة) للفترة المحاسبية</span>
-                      <span className="text-base font-bold text-white">Net Income = الإيرادات − المصروفات</span>
+                      <span className="text-xs text-slate-400 block">صافي الربح / (الخسارة) للفترة المحاسبية (UC-58)</span>
+                      <span className="text-base font-bold text-white">Net Income = مجمل الربح + الإيرادات − المصروفات</span>
                     </div>
-                    <div className={`font-mono text-xl font-bold ${reportData.is_profit ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    <div className={`font-mono text-2xl font-bold ${reportData.is_profit ? 'text-emerald-400' : 'text-rose-400'}`}>
                       {Number(reportData.net_profit || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} ر.س
                     </div>
                   </div>

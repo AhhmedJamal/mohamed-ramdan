@@ -73,6 +73,8 @@ export default function LoginPage() {
         setErrorMessage('حساب الشركة مجمد حالياً، يرجى مراجعة إدارة المجموعة');
       } else if (data?.message) {
         setErrorMessage(data.message);
+      } else if (!err.response) {
+        setErrorMessage('تعذر الاتصال بالخادم (Backend API). يرجى التحقق من اتصال الشبكة.');
       } else {
         setErrorMessage('بيانات الدخول غير صحيحة');
       }

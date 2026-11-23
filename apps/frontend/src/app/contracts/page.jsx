@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import AppLayout from '../../components/AppLayout';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import api from '../../services/api';
+import Badge from '../../components/ui/Badge';
 import {
   Plus,
   FileText,
@@ -446,35 +447,16 @@ export default function ContractsPage() {
                         {c.collection_cycle === 'annual' && 'سنوي (دفعة واحدة)'}
                       </td>
                       <td className="py-4 px-6">
-                        {c.status === 'active' && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            <CheckCircle2 className="w-3 h-3" />
-                            <span>ساري</span>
-                          </span>
-                        )}
-                        {c.status === 'pending_cancellation' && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-300">
-                            <Clock className="w-3 h-3 text-amber-600" />
-                            <span>طلب إلغاء معلق</span>
-                          </span>
-                        )}
-                        {c.status === 'overdue' && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
-                            <AlertCircle className="w-3 h-3" />
-                            <span>متأخر السداد</span>
-                          </span>
-                        )}
-                        {c.status === 'expired' && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-                            <span>منتهي</span>
-                          </span>
-                        )}
-                        {c.status === 'cancelled' && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-red-50 text-red-700 border border-red-200">
-                            <Ban className="w-3 h-3" />
-                            <span>ملغي</span>
-                          </span>
-                        )}
+                        <Badge
+                          status={c.status}
+                          label={
+                            c.status === 'active' ? 'ساري' :
+                            c.status === 'pending_cancellation' ? 'طلب إلغاء معلق' :
+                            c.status === 'overdue' ? 'متأخر السداد' :
+                            c.status === 'expired' ? 'منتهي' :
+                            c.status === 'cancelled' ? 'ملغي' : c.status
+                          }
+                        />
                       </td>
                       <td className="py-4 px-6 text-center">
                         <div className="flex items-center justify-center gap-1.5 flex-wrap">

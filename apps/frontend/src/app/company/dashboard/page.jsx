@@ -4,7 +4,9 @@ import React, { useState, useEffect } from 'react';
 import AppLayout from '../../../components/AppLayout';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 import api from '../../../services/api';
-import { Building, Key, Users, AlertCircle, TrendingUp, CheckCircle2, ArrowUpRight, Plus } from 'lucide-react';
+import StatCard from '../../../components/ui/StatCard';
+import Badge from '../../../components/ui/Badge';
+import { Building, Key, Users, AlertCircle, TrendingUp, CheckCircle2, ArrowUpRight, Plus, DollarSign } from 'lucide-react';
 import Link from 'next/link';
 
 export default function CompanyDashboard() {
@@ -69,54 +71,38 @@ export default function CompanyDashboard() {
     <ProtectedRoute allowedRoles={['branch_manager']}>
       <AppLayout title="لوحة تحكم مدير الفرع" subtitle="المؤشرات التشغيلية للعقارات والوحدات وعقود الإيجار">
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
-          <div>
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">نسبة الإشغال العام</p>
-            <p className="text-2xl font-bold text-slate-900 mt-2">{metrics.occupancy_rate}%</p>
-            <p className="text-[11px] text-emerald-600 font-semibold mt-1">
-              {metrics.rented_units} مؤجرة من إجمالي {metrics.total_units} وحدة
-            </p>
-          </div>
-          <div className="w-12 h-12 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600">
-            <TrendingUp className="w-6 h-6" />
-          </div>
-        </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <StatCard
+          title="نسبة الإشغال العام"
+          value={`${metrics.occupancy_rate}%`}
+          subtitle={`${metrics.rented_units} مؤجرة من إجمالي ${metrics.total_units} وحدة`}
+          icon={TrendingUp}
+          color="amber"
+        />
 
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
-          <div>
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">العقارات والمباني</p>
-            <p className="text-2xl font-bold text-slate-900 mt-2">{metrics.total_properties}</p>
-            <p className="text-[11px] text-slate-500 mt-1">{metrics.total_units} وحدة سكنية وتجارية</p>
-          </div>
-          <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-slate-700">
-            <Building className="w-6 h-6" />
-          </div>
-        </div>
+        <StatCard
+          title="العقارات والمباني"
+          value={metrics.total_properties}
+          subtitle={`${metrics.total_units} وحدة سكنية وتجارية`}
+          icon={Building}
+          color="slate"
+        />
 
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
-          <div>
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">عقود الإيجار النشطة</p>
-            <p className="text-2xl font-bold text-emerald-600 mt-2">{metrics.active_contracts}</p>
-            <p className="text-[11px] text-emerald-600 font-semibold mt-1">سارية ومجدولة</p>
-          </div>
-          <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600">
-            <Key className="w-6 h-6" />
-          </div>
-        </div>
+        <StatCard
+          title="عقود الإيجار النشطة"
+          value={metrics.active_contracts}
+          subtitle="سارية ومجدولة الأقساط"
+          icon={Key}
+          color="emerald"
+        />
 
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
-          <div>
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">الأقساط المتأخرة</p>
-            <p className="text-2xl font-bold text-rose-600 mt-2">{metrics.overdue_installments} أقساط</p>
-            <p className="text-[11px] text-rose-600 font-semibold mt-1">
-              {Number(metrics.overdue_amount).toLocaleString()} ر.س
-            </p>
-          </div>
-          <div className="w-12 h-12 rounded-xl bg-rose-50 flex items-center justify-center text-rose-600">
-            <AlertCircle className="w-6 h-6" />
-          </div>
-        </div>
+        <StatCard
+          title="الأقساط المتأخرة"
+          value={`${metrics.overdue_installments} أقساط`}
+          subtitle={`${Number(metrics.overdue_amount).toLocaleString()} ر.س مستحقة التحصيل`}
+          icon={AlertCircle}
+          color={metrics.overdue_installments > 0 ? 'rose' : 'slate'}
+        />
       </div>
 
       {/* Operational Actions & Shortcuts */}

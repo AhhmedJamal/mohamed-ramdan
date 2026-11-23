@@ -33,6 +33,40 @@ class CentralSeeder extends Seeder
             ]);
         }
 
+        // Also seed admin@mohamedramadan.com
+        $ramadanAdmin = User::where('email', 'admin@mohamedramadan.com')->first();
+        if (!$ramadanAdmin) {
+            $ramadanAdmin = User::create([
+                'email' => 'admin@mohamedramadan.com',
+                'name' => 'محمد رمضان (الأدمن العام)',
+                'mobile' => '0500000009',
+                'password' => Hash::make('Password@123'),
+                'status' => 'active',
+            ]);
+        } else {
+            $ramadanAdmin->update([
+                'password' => Hash::make('Password@123'),
+                'status' => 'active',
+            ]);
+        }
+
+        // Also seed admin@ehkam.com for demo convenience
+        $ehkamAdmin = User::where('email', 'admin@ehkam.com')->first();
+        if (!$ehkamAdmin) {
+            $ehkamAdmin = User::create([
+                'email' => 'admin@ehkam.com',
+                'name' => 'محمد رمضان (الأدمن العام)',
+                'mobile' => '0500000000',
+                'password' => Hash::make('Password@123'),
+                'status' => 'active',
+            ]);
+        } else {
+            $ehkamAdmin->update([
+                'password' => Hash::make('Password@123'),
+                'status' => 'active',
+            ]);
+        }
+
         // 2. Create 3 Distinct Group Companies (Portfolio Scope per SRS Section 1.3)
         $companiesData = [
             [
@@ -83,7 +117,15 @@ class CentralSeeder extends Seeder
                 $superAdmin->id => [
                     'role' => 'super_admin',
                     'is_primary_manager' => false,
-                ]
+                ],
+                $ehkamAdmin->id => [
+                    'role' => 'super_admin',
+                    'is_primary_manager' => false,
+                ],
+                $ramadanAdmin->id => [
+                    'role' => 'super_admin',
+                    'is_primary_manager' => false,
+                ],
             ]);
         }
 

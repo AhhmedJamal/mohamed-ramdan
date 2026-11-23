@@ -294,6 +294,9 @@ class FinancialReportService
                     'amount' => round($bal, 2),
                 ];
                 $totalCapital += $bal;
+            } elseif ($root === 'withdrawals') {
+                $bal = $acc['ending_debit'] - $acc['ending_credit'];
+                $totalWithdrawals += $bal;
             }
         }
 
@@ -332,16 +335,31 @@ class FinancialReportService
 
     /**
      * UC-58: Income Statement (قائمة الدخل)
-     * Net Profit = Total Revenues - Total Expenses
+     * Includes Sales, Sales Returns, Discounts, Purchases, Purchase Returns, COGS, Gross Profit, Other Revenues, Operating Expenses & Net Profit
      */
     public function getIncomeStatement(?string $fromDate = null, ?string $toDate = null, ?string $fiscalYearId = null): array
     {
-        $accounts = Account::whereIn('root_type', ['revenues', 'expenses'])->orderBy('code')->get();
+        $relevantRoots = [
+            'revenues', 'expenses', 'sales', 'sales_returns',
+            'purchases', 'purchase_returns', 'discounts_allowed', 'discounts_earned'
+        ];
+        $accounts = Account::whereIn('root_type', $relevantRoots)->orderBy('code')->get();
 
         $revenues = [];
         $expenses = [];
-        $totalRevenues = 0.0;
-        $totalExpenses = 0.0;
+        $salesItems = [];
+        $purchasesItems = [];
+
+        $totalSales = 0.0;
+        $totalSalesReturns = 0.0;
+        $totalDiscountsAllowed = 0.0;
+
+        $totalPurchases = 0.0;
+        $totalPurchaseReturns = 0.0;
+        $totalDiscountsEarned = 0.0;
+
+        $otherRevenues = 0.0;
+        $operatingExpenses = 0.0;
 
         foreach ($accounts as $acc) {
             $query = JournalEntryItem::where('account_id', $acc->id)
@@ -361,39 +379,78 @@ class FinancialReportService
             $deb = (float)$query->sum('debit');
             $cred = (float)$query->sum('credit');
 
-            if ($acc->root_type === 'revenues') {
-                $net = $cred - $deb;
-                $revenues[] = [
-                    'account_id' => $acc->id,
-                    'code' => $acc->code,
-                    'name' => $acc->name,
-                    'amount' => round($net, 2),
-                ];
-                $totalRevenues += $net;
-            } else {
-                $net = $deb - $cred;
-                $expenses[] = [
-                    'account_id' => $acc->id,
-                    'code' => $acc->code,
-                    'name' => $acc->name,
-                    'amount' => round($net, 2),
-                ];
-                $totalExpenses += $net;
+            switch ($acc->root_type) {
+                case 'sales':
+                    $net = $cred - $deb;
+                    $totalSales += $net;
+                    $salesItems[] = ['account_id' => $acc->id, 'code' => $acc->code, 'name' => $acc->name, 'amount' => round($net, 2)];
+                    break;
+                case 'sales_returns':
+                    $net = $deb - $cred;
+                    $totalSalesReturns += $net;
+                    break;
+                case 'discounts_allowed':
+                    $net = $deb - $cred;
+                    $totalDiscountsAllowed += $net;
+                    break;
+                case 'purchases':
+                    $net = $deb - $cred;
+                    $totalPurchases += $net;
+                    $purchasesItems[] = ['account_id' => $acc->id, 'code' => $acc->code, 'name' => $acc->name, 'amount' => round($net, 2)];
+                    break;
+                case 'purchase_returns':
+                    $net = $cred - $deb;
+                    $totalPurchaseReturns += $net;
+                    break;
+                case 'discounts_earned':
+                    $net = $cred - $deb;
+                    $totalDiscountsEarned += $net;
+                    break;
+                case 'revenues':
+                    $net = $cred - $deb;
+                    $otherRevenues += $net;
+                    $revenues[] = ['account_id' => $acc->id, 'code' => $acc->code, 'name' => $acc->name, 'amount' => round($net, 2)];
+                    break;
+                case 'expenses':
+                default:
+                    $net = $deb - $cred;
+                    $operatingExpenses += $net;
+                    $expenses[] = ['account_id' => $acc->id, 'code' => $acc->code, 'name' => $acc->name, 'amount' => round($net, 2)];
+                    break;
             }
         }
 
-        $netProfit = round($totalRevenues - $totalExpenses, 2);
+        $netSales = round($totalSales - $totalSalesReturns - $totalDiscountsAllowed, 2);
+        $netPurchases = round($totalPurchases - $totalPurchaseReturns - $totalDiscountsEarned, 2);
+        $costOfGoodsSold = $netPurchases; // In real estate / services or period without separate inventory
+        $grossProfit = round($netSales - $costOfGoodsSold, 2);
+
+        $totalRevenues = round($netSales + $otherRevenues + $totalDiscountsEarned, 2);
+        $totalExpenses = round($operatingExpenses + $costOfGoodsSold + $totalSalesReturns + $totalDiscountsAllowed, 2);
+        $netProfit = round($grossProfit + $otherRevenues - $operatingExpenses, 2);
 
         return [
             'from_date' => $fromDate,
             'to_date' => $toDate,
+            'net_sales' => $netSales,
+            'total_sales' => round($totalSales, 2),
+            'sales_returns' => round($totalSalesReturns, 2),
+            'discounts_allowed' => round($totalDiscountsAllowed, 2),
+            'net_purchases' => $netPurchases,
+            'total_purchases' => round($totalPurchases, 2),
+            'purchase_returns' => round($totalPurchaseReturns, 2),
+            'discounts_earned' => round($totalDiscountsEarned, 2),
+            'cost_of_goods_sold' => $costOfGoodsSold,
+            'gross_profit' => $grossProfit,
+            'other_revenues' => round($otherRevenues, 2),
+            'operating_expenses' => round($operatingExpenses, 2),
             'revenues' => [
-                'items' => $revenues,
-                'total' => round($totalRevenues, 2),
+                'items' => array_merge($salesItems, $revenues),
+                'total' => $totalRevenues,
             ],
             'expenses' => [
-                'items' => $expenses,
-                'total' => round($totalExpenses, 2),
+                'items' => array_merge($purchasesItems, $expenses),
+                'total' => $totalExpenses,
             ],
             'net_profit' => $netProfit,
             'is_profit' => $netProfit >= 0,

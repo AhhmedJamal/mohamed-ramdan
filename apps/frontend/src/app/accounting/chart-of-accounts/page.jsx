@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import AppLayout from '../../../components/AppLayout';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 import api from '../../../services/api';
+import Badge from '../../../components/ui/Badge';
+import StatCard from '../../../components/ui/StatCard';
 import {
   BookOpen,
   Plus,
@@ -209,9 +211,7 @@ export default function ChartOfAccountsPage() {
                 {node.code}
               </span>
               <span className="text-slate-900 font-semibold">{node.name_ar || node.name}</span>
-              <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-slate-200 text-slate-700">
-                {node.nature === 'debit' ? 'طبيعة: مدين' : 'طبيعة: دائن'}
-              </span>
+              <Badge status={node.nature} label={node.nature === 'debit' ? 'مدين' : 'دائن'} size="xs" />
             </div>
 
             <div className="flex items-center gap-3">

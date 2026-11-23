@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import AppLayout from '../../../components/AppLayout';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 import api from '../../../services/api';
+import BalanceBar from '../../../components/ui/BalanceBar';
+import Badge from '../../../components/ui/Badge';
 import {
   FileText, Plus, CheckCircle2, AlertCircle, Trash2, ArrowRight,
   Eye, RefreshCw, Search, X, Calendar, Edit2, Layers
@@ -317,17 +319,10 @@ export default function JournalEntriesPage() {
                         {Number(item.total_credit || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </td>
                       <td className="py-3.5 px-4">
-                        {item.status === 'posted' ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                            <span>مرحّل للأستاذ</span>
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-                            <AlertCircle className="w-3 h-3 text-amber-600" />
-                            <span>مسودة (Draft)</span>
-                          </span>
-                        )}
+                        <Badge
+                          status={item.status === 'posted' ? 'posted' : 'draft'}
+                          label={item.status === 'posted' ? 'مرحّل للأستاذ' : 'مسودة'}
+                        />
                       </td>
                       <td className="py-3.5 px-4 text-center">
                         <div className="flex items-center justify-center gap-1.5">
@@ -553,6 +548,11 @@ export default function JournalEntriesPage() {
                       </tr>
                     </tfoot>
                   </table>
+                </div>
+
+                {/* Live Balance Bar */}
+                <div className="pt-2">
+                  <BalanceBar totalDebit={totalDebit} totalCredit={totalCredit} />
                 </div>
 
                 {/* Actions */}

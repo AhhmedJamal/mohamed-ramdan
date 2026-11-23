@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import AppLayout from '../../components/AppLayout';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import api from '../../services/api';
+import Badge from '../../components/ui/Badge';
 import {
   Building, Plus, Search, RefreshCw, Layers, MapPin, Trash2, Edit2,
   AlertTriangle, CheckCircle2, ChevronRight, X, ShieldAlert
@@ -455,19 +456,15 @@ export default function PropertiesManagementPage() {
                               </td>
                               <td className="py-3 px-4 font-mono">{unit.area_sqm ? `${unit.area_sqm} م²` : '—'}</td>
                               <td className="py-3 px-4">
-                                {unit.status === 'vacant' ? (
-                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                    شاغرة
-                                  </span>
-                                ) : unit.status === 'occupied' ? (
-                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
-                                    مشغولة
-                                  </span>
-                                ) : (
-                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-                                    تحت الصيانة
-                                  </span>
-                                )}
+                                <Badge
+                                  status={unit.status}
+                                  label={
+                                    unit.status === 'vacant' ? 'شاغرة' :
+                                    unit.status === 'occupied' ? 'مشغولة' :
+                                    unit.status === 'under_maintenance' ? 'تحت الصيانة' : unit.status
+                                  }
+                                  size="xs"
+                                />
                               </td>
                               <td className="py-3 px-4 text-slate-600">
                                 {unit.current_tenant_name ? (

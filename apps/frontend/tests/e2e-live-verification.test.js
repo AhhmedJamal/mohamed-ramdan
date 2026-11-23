@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-const BASE_URL = process.env.API_URL || 'http://127.0.0.1:8000/api';
+const BASE_URL = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8001/api';
 
 const apiRequest = async (path, options = {}) => {
   const url = `${BASE_URL}${path}`;
@@ -30,13 +30,16 @@ const apiRequest = async (path, options = {}) => {
 test('Live E2E: Complete ERP System Verification', async (t) => {
   // Check if server is running
   try {
-    const probe = await fetch(`${BASE_URL}/tenant/info`, { signal: AbortSignal.timeout(1500) });
+    const probe = await fetch(`${BASE_URL}/tenant/info`, {
+      headers: { 'X-Tenant-Subdomain': 'comp1' },
+      signal: AbortSignal.timeout(15000),
+    });
     if (!probe || !probe.ok) {
-      t.skip('Backend server is not active on 127.0.0.1:8000; skipping live E2E suite.');
+      t.skip('Backend server is not active on ' + BASE_URL + '; skipping live E2E suite.');
       return;
     }
   } catch (e) {
-    t.skip(`Backend server is not active on 127.0.0.1:8000 (${e.message}); skipping live E2E suite. Start backend with 'php artisan serve' to execute.`);
+    t.skip(`Backend server is not active on ${BASE_URL} (${e.message}); skipping live E2E suite.`);
     return;
   }
 

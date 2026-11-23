@@ -50,7 +50,7 @@ return [
             'url' => env('TENANT_DB_URL', env('DB_URL')),
             'host' => env('TENANT_DB_HOST', env('DB_HOST', '127.0.0.1')),
             'port' => env('TENANT_DB_PORT', env('DB_PORT', '3306')),
-            'database' => null, // Dynamically configured by TenantManager at runtime
+            'database' => env('TENANT_DB_DATABASE', database_path('tenant.sqlite')),
             'username' => env('TENANT_DB_USERNAME', env('DB_USERNAME', 'root')),
             'password' => env('TENANT_DB_PASSWORD', env('DB_PASSWORD', '')),
             'charset' => env('DB_CHARSET', 'utf8mb4'),

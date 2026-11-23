@@ -43,8 +43,12 @@ class TenantManager
         if ($driver === 'sqlite') {
             $prefix = app()->environment('testing') ? 'test_' : '';
             $dbPath = database_path("{$prefix}tenant_{$company->subdomain}.sqlite");
-            if (!File::exists($dbPath)) {
-                File::put($dbPath, '');
+            if (!File::exists($dbPath) || filesize($dbPath) < 1000) {
+                if (File::exists(database_path('tenant.sqlite'))) {
+                    File::copy(database_path('tenant.sqlite'), $dbPath);
+                } else {
+                    File::put($dbPath, '');
+                }
             }
             Config::set('database.connections.tenant.database', $dbPath);
         } else {
@@ -97,9 +101,14 @@ class TenantManager
     {
         $this->switchConnection($company);
 
+        if (app()->bound('migrator')) {
+            app('migrator')->setConnection('tenant');
+        }
+
         return Artisan::call('migrate', [
             '--database' => 'tenant',
-            '--path' => 'database/migrations/tenant',
+            '--path' => database_path('migrations/tenant'),
+            '--realpath' => true,
             '--force' => true,
         ]);
     }
@@ -111,9 +120,14 @@ class TenantManager
     {
         $this->switchConnection($company);
 
+        if (app()->bound('migrator')) {
+            app('migrator')->setConnection('tenant');
+        }
+
         Artisan::call('migrate', [
             '--database' => 'tenant',
-            '--path' => 'database/migrations/tenant',
+            '--path' => database_path('migrations/tenant'),
+            '--realpath' => true,
             '--force' => true,
         ]);
 

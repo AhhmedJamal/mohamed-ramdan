@@ -263,13 +263,13 @@ export default function AppLayout({ title, subtitle, children }) {
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2 mt-2">
-            <button
-              onClick={openProfileModal}
+            <Link
+              href="/profile"
               className="flex items-center justify-center gap-1.5 px-2.5 py-2 text-[11px] font-medium text-slate-200 hover:text-white hover:bg-slate-800 rounded-lg border border-slate-700 transition-colors"
             >
               <User className="w-3.5 h-3.5 text-amber-400" />
               <span>الملف الشخصي</span>
-            </button>
+            </Link>
             <button
               onClick={logout}
               className="flex items-center justify-center gap-1.5 px-2.5 py-2 text-[11px] font-medium text-rose-300 hover:text-white hover:bg-rose-950/40 rounded-lg border border-rose-900/40 transition-colors"

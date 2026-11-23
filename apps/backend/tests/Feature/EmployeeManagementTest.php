@@ -178,6 +178,7 @@ class EmployeeManagementTest extends TestCase
         $accountant = User::where('email', 'accountant@comp1.com')->first();
 
         // 1. Insert an approved voucher created by this accountant in tenant DB
+        $this->tenantManager->provisionTenantDatabase($comp1);
         $this->tenantManager->switchConnection($comp1);
         $ccId = DB::connection('tenant')->table('cost_centers')->value('id') ?? DB::connection('tenant')->table('cost_centers')->insertGetId([
             'code' => 'CC-EMP-01',

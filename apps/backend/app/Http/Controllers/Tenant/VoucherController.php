@@ -478,6 +478,16 @@ class VoucherController extends Controller
             ], 422);
         }
 
+        // Maker-Checker Rule: Creator cannot approve their own voucher
+        $subdomain = $request->header('X-Tenant-Subdomain') ?? $request->query('subdomain');
+        $userRole = $request->user()->getRoleForCompany($subdomain);
+        if ($voucher->created_by && $voucher->created_by === $request->user()->id && $userRole !== 'super_admin') {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'لا يمكن لمنشئ السند اعتماده بنفسه (مبدأ فصل المهام Maker-Checker)',
+            ], 403);
+        }
+
         if ($voucher->status === 'rejected') {
             return response()->json([
                 'status' => 'error',

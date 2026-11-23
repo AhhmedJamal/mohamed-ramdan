@@ -1,0 +1,71 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: ehkam_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root_secret}
+      MYSQL_DATABASE: ${DB_DATABASE:-ehkam_erp}
+      MYSQL_USER: ${DB_USERNAME:-ehkam_user}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-user_secret}
+    ports:
+      - "${DB_PORT:-3309}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - ehkam_net
+
+  backend:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    container_name: ehkam_backend
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - ./apps/backend:/var/www/html
+    depends_on:
+      - mysql
+    networks:
+      - ehkam_net
+
+  nginx:
+    image: nginx:alpine
+    container_name: ehkam_nginx
+    restart: unless-stopped
+    ports:
+      - "8000:80"
+      - "${BACKEND_PORT:-8001}:80"
+    volumes:
+      - ./apps/backend:/var/www/html
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - backend
+    networks:
+      - ehkam_net
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend/Dockerfile
+    container_name: ehkam_frontend
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - ./apps/frontend:/app
+      - /app/node_modules
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:${BACKEND_PORT:-8001}/api
+    depends_on:
+      - nginx
+    networks:
+      - ehkam_net
+
+volumes:
+  mysql_data:
+
+networks:
+  ehkam_net:
+    driver: bridge

@@ -349,18 +349,29 @@ class EmployeeController extends Controller
         }
 
         // Audit Rule: Check tenant database if this accountant has posted/created accounting entries
-        $this->tenantManager->switchConnection($company);
+        $hasVouchers = false;
+        $hasEntries = false;
 
-        $hasVouchers = DB::connection('tenant')->table('vouchers')
-            ->where('created_by', $id)
-            ->orWhere('approved_by', $id)
-            ->exists();
+        try {
+            $this->tenantManager->switchConnection($company);
 
-        $hasEntries = DB::connection('tenant')->table('journal_entries')
-            ->where('created_by', $id)
-            ->exists();
+            if (\Illuminate\Support\Facades\Schema::connection('tenant')->hasTable('vouchers')) {
+                $hasVouchers = DB::connection('tenant')->table('vouchers')
+                    ->where('created_by', $id)
+                    ->orWhere('approved_by', $id)
+                    ->exists();
+            }
 
-        $this->tenantManager->resetToCentral();
+            if (\Illuminate\Support\Facades\Schema::connection('tenant')->hasTable('journal_entries')) {
+                $hasEntries = DB::connection('tenant')->table('journal_entries')
+                    ->where('created_by', $id)
+                    ->exists();
+            }
+        } catch (\Throwable $e) {
+            // Tenant DB might not be initialized yet
+        } finally {
+            $this->tenantManager->resetToCentral();
+        }
 
         if ($hasVouchers || $hasEntries) {
             return response()->json([

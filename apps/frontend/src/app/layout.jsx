@@ -9,8 +9,8 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="ar" dir="rtl">
-      <body>
+    <html lang="ar" dir="rtl" suppressHydrationWarning>
+      <body suppressHydrationWarning className="antialiased">
         <AuthProvider>
           <TenantProvider>
             {children}
@@ -20,4 +20,3 @@ export default function RootLayout({ children }) {
     </html>
   );
 }
-
