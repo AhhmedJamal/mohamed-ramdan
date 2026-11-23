@@ -65,12 +65,16 @@ class JournalEntryController extends Controller
         $enriched = $entries->map(function ($e) {
             $data = $e->toArray();
             $data['status_label'] = JournalEntry::$statusArabicLabels[$e->status] ?? $e->status;
+            $data['entry_date'] = $e->date;
+            $data['description'] = $e->explanation;
+            $data['lines'] = $e->items;
             return $data;
         });
 
         return response()->json([
             'status' => 'success',
             'data' => $enriched,
+            'entries' => $enriched,
             'count' => $enriched->count(),
         ]);
     }
@@ -91,6 +95,9 @@ class JournalEntryController extends Controller
 
         $data = $entry->toArray();
         $data['status_label'] = JournalEntry::$statusArabicLabels[$entry->status] ?? $entry->status;
+        $data['entry_date'] = $entry->date;
+        $data['description'] = $entry->explanation;
+        $data['lines'] = $entry->items;
 
         return response()->json([
             'status' => 'success',
@@ -108,6 +115,23 @@ class JournalEntryController extends Controller
                 'status' => 'error',
                 'message' => 'غير مصرح لك بإنشاء قيد يومية يدوي، الصلاحية للمحاسب العام فقط',
             ], 403);
+        }
+
+        // Merge frontend aliases
+        if (!$request->filled('date') && $request->filled('entry_date')) {
+            $request->merge(['date' => $request->entry_date]);
+        }
+        if (!$request->filled('explanation') && $request->filled('description')) {
+            $request->merge(['explanation' => $request->description]);
+        }
+        if (!$request->has('items') && $request->has('lines')) {
+            $items = array_map(function ($line) {
+                if (!isset($line['line_note']) && isset($line['memo'])) {
+                    $line['line_note'] = $line['memo'];
+                }
+                return $line;
+            }, (array) $request->lines);
+            $request->merge(['items' => $items]);
         }
 
         $validator = Validator::make($request->all(), [
@@ -221,6 +245,153 @@ class JournalEntryController extends Controller
             'message' => $isPosted ? 'تم إنشاء القيد وترحيله بنجاح' : 'تم حفظ القيد كمسودة بنجاح',
             'data' => $entry,
         ], 201);
+    }
+
+    /**
+     * Update draft journal entry (UC-50)
+     */
+    public function update(Request $request, int $id): JsonResponse
+    {
+        if (!$this->authorizeAccountant($request)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'غير مصرح لك بتعديل القيد، الصلاحية للمحاسب العام فقط',
+            ], 403);
+        }
+
+        $entry = JournalEntry::find($id);
+        if (!$entry) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'القيد غير موجود',
+            ], 404);
+        }
+
+        // Business Rule UC-49: القيد المرحّل لا يمكن تعديله
+        if ($entry->status === 'posted') {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'لا يمكن تعديل قيد مرحّل',
+            ], 422);
+        }
+
+        // Merge frontend aliases
+        if (!$request->filled('date') && $request->filled('entry_date')) {
+            $request->merge(['date' => $request->entry_date]);
+        }
+        if (!$request->filled('explanation') && $request->filled('description')) {
+            $request->merge(['explanation' => $request->description]);
+        }
+        if (!$request->has('items') && $request->has('lines')) {
+            $items = array_map(function ($line) {
+                if (!isset($line['line_note']) && isset($line['memo'])) {
+                    $line['line_note'] = $line['memo'];
+                }
+                return $line;
+            }, (array) $request->lines);
+            $request->merge(['items' => $items]);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'date' => 'sometimes|required|date',
+            'explanation' => 'sometimes|required|string|min:10|max:500',
+            'items' => 'sometimes|required|array|min:2',
+            'items.*.account_id' => 'required|exists:tenant.accounts,id',
+            'items.*.cost_center_id' => 'nullable|exists:tenant.cost_centers,id',
+            'items.*.debit' => 'required|numeric|min:0',
+            'items.*.credit' => 'required|numeric|min:0',
+            'items.*.line_note' => 'nullable|string|max:255',
+            'is_posted' => 'nullable|boolean',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $validator->errors()->first(),
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $date = $request->input('date', $entry->date);
+        if (!FiscalPeriodService::validateDateNotLocked($date)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'الفترة المالية مغلقة، لا يمكن إضافة أو تعديل قيود بها',
+            ], 422);
+        }
+
+        $itemsData = $request->has('items') ? $request->items : null;
+        $totalDebit = $entry->total_debit;
+        $totalCredit = $entry->total_credit;
+
+        if ($itemsData !== null) {
+            $totalDebit = 0.0;
+            $totalCredit = 0.0;
+            foreach ($itemsData as $item) {
+                $totalDebit += (float) $item['debit'];
+                $totalCredit += (float) $item['credit'];
+
+                $account = Account::find($item['account_id']);
+                if ($account && $account->is_cost_center_mandatory && empty($item['cost_center_id'])) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => "الحساب [{$account->name}] يتطلب تحديد مركز تكلفة إلزامي",
+                    ], 422);
+                }
+            }
+
+            if (abs($totalDebit - $totalCredit) > 0.0001) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'القيد غير متوازن، إجمالي المدين يجب أن يساوي إجمالي الدائن',
+                    'total_debit' => $totalDebit,
+                    'total_credit' => $totalCredit,
+                    'difference' => abs($totalDebit - $totalCredit),
+                ], 422);
+            }
+        }
+
+        $isPosted = $request->boolean('is_posted', false);
+
+        DB::connection('tenant')->transaction(function () use ($entry, $request, $date, $totalDebit, $totalCredit, $itemsData, $isPosted) {
+            $entry->date = $date;
+            if ($request->filled('explanation')) {
+                $entry->explanation = $request->explanation;
+            }
+            $entry->total_debit = $totalDebit;
+            $entry->total_credit = $totalCredit;
+            if ($isPosted) {
+                $entry->status = 'posted';
+                $entry->posted_at = now();
+            }
+            $entry->save();
+
+            if ($itemsData !== null) {
+                JournalEntryItem::where('journal_entry_id', $entry->id)->delete();
+                foreach ($itemsData as $item) {
+                    JournalEntryItem::create([
+                        'journal_entry_id' => $entry->id,
+                        'account_id' => $item['account_id'],
+                        'cost_center_id' => $item['cost_center_id'] ?? null,
+                        'debit' => $item['debit'],
+                        'credit' => $item['credit'],
+                        'line_note' => $item['line_note'] ?? null,
+                    ]);
+                }
+            }
+        });
+
+        $loaded = $entry->fresh(['items.account', 'items.costCenter', 'fiscalYear']);
+        $data = $loaded->toArray();
+        $data['entry_date'] = $loaded->date;
+        $data['description'] = $loaded->explanation;
+        $data['lines'] = $loaded->items;
+
+        return response()->json([
+            'status' => 'success',
+            'message' => $isPosted ? 'تم تحديث القيد وترحيله بنجاح' : 'تم تحديث مسودة القيد بنجاح',
+            'data' => $data,
+        ], 200);
     }
 
     /**

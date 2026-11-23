@@ -224,6 +224,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/journal-entries/{id}', [JournalEntryController::class, 'show']);
     Route::middleware('role:general_accountant')->group(function () {
         Route::post('/journal-entries', [JournalEntryController::class, 'store']);
+        Route::put('/journal-entries/{id}', [JournalEntryController::class, 'update']);
         Route::delete('/journal-entries/{id}', [JournalEntryController::class, 'destroy']);
     });
 
